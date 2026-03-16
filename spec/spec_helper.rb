@@ -8,6 +8,9 @@ require 'legion/settings'
 
 Legion::Settings.load
 
+require 'legion/rbac/settings'
+Legion::Settings.merge_settings(:rbac, Legion::Rbac::Settings.default)
+
 require 'legion/rbac'
 
 RSpec.configure do |config|

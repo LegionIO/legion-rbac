@@ -8,6 +8,7 @@ require 'legion/rbac/config_loader'
 require 'legion/rbac/principal'
 require 'legion/rbac/policy_engine'
 require 'legion/rbac/team_scope'
+require 'legion/rbac/store'
 
 module Legion
   module Rbac

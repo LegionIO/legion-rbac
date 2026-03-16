@@ -9,6 +9,7 @@ require 'legion/rbac/principal'
 require 'legion/rbac/policy_engine'
 require 'legion/rbac/team_scope'
 require 'legion/rbac/store'
+require 'legion/rbac/middleware'
 
 module Legion
   module Rbac

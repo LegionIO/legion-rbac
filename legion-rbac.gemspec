@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
     'bug_tracker_uri'       => 'https://github.com/LegionIO/legion-rbac/issues',
     'changelog_uri'         => 'https://github.com/LegionIO/legion-rbac/blob/main/CHANGELOG.md',
     'documentation_uri'     => 'https://github.com/LegionIO/legion-rbac',
-    'homepage_uri'          => 'https://github.com/LegionIO/LegionIO',
+    'homepage_uri'          => 'https://github.com/LegionIO/legion-rbac',
     'source_code_uri'       => 'https://github.com/LegionIO/legion-rbac',
     'wiki_uri'              => 'https://github.com/LegionIO/legion-rbac/wiki',
     'rubygems_mfa_required' => 'true'

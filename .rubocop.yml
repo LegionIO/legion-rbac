@@ -27,6 +27,9 @@ Metrics/BlockLength:
   Exclude:
     - 'spec/**/*'
 
+Metrics/ParameterLists:
+  Max: 7
+
 Metrics/AbcSize:
   Max: 60
 

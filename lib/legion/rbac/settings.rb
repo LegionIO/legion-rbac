@@ -11,7 +11,8 @@ module Legion
           default_local_role: 'admin',
           static_assignments: [],
           route_permissions:  {},
-          roles:              default_roles
+          roles:              default_roles,
+          entra:              entra_defaults
         }
       end
 
@@ -21,6 +22,20 @@ module Legion
           supervisor:            supervisor_role,
           admin:                 admin_role,
           'governance-observer': governance_observer_role
+        }
+      end
+
+      def self.entra_defaults
+        {
+          tenant_id:    nil,
+          role_map:     {
+            'Legion.Admin'      => 'admin',
+            'Legion.Supervisor' => 'supervisor',
+            'Legion.Worker'     => 'worker',
+            'Legion.Observer'   => 'governance-observer'
+          },
+          group_map:    {},
+          default_role: 'worker'
         }
       end
 

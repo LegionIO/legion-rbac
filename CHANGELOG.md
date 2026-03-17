@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0] - 2026-03-17
+
+### Added
+- `EntraClaimsMapper` module: maps Entra ID claims (oid, roles, groups) to Legion RBAC principals
+- Configurable role_map (app roles) and group_map (security group OIDs) with default_role fallback
+- Entra settings defaults (tenant_id, role_map, group_map, default_role)
+- String and symbol key support for JWT claim payloads
+
 ## [0.1.0] - 2026-03-16
 
 ### Added

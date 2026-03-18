@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `KerberosClaimsMapper` module: maps Kerberos principals and AD group memberships to Legion roles
+- LDAP group-to-role mapping with configurable `role_map`
+- Entra fallback via `map_with_fallback` when LDAP groups unavailable
+- `auth_method: 'kerberos'` claim injection for identity signal tracking
+
 ## [0.2.0] - 2026-03-17
 
 ### Added

@@ -10,6 +10,8 @@ Role-based access control for LegionIO, following Vault-style flat policy patter
 - Team scoping with cross-team as explicit privilege
 - Two-layer enforcement: Rack middleware for API routes + `authorize_execution!` for all execution sources
 - Dual-mode store: DB-backed via Sequel or static fallback
+- Entra ID claims mapping (roles and groups to Legion roles)
+- Kerberos claims mapping (AD group DNs to Legion roles, with Entra fallback)
 - Fully optional: guarded by `if defined?(Legion::Rbac)` in LegionIO
 
 ## Installation

@@ -26,7 +26,9 @@ lib/legion/rbac/principal.rb    # Identity wrapper + factory methods
 lib/legion/rbac/policy_engine.rb # Core evaluator
 lib/legion/rbac/team_scope.rb   # Cross-team access validation
 lib/legion/rbac/store.rb        # Dual-mode data access
-lib/legion/rbac/middleware.rb   # Rack middleware
+lib/legion/rbac/middleware.rb              # Rack middleware
+lib/legion/rbac/entra_claims_mapper.rb    # Entra ID claims -> Legion roles
+lib/legion/rbac/kerberos_claims_mapper.rb # Kerberos principal + AD groups -> Legion roles
 ```
 
 ## Integration Points
@@ -38,6 +40,13 @@ lib/legion/rbac/middleware.rb   # Rack middleware
 - **LegionIO/lib/legion/cli/rbac_command.rb**: Thor CLI subcommand
 - **LegionIO/lib/legion/mcp/tools/rbac_*.rb**: 3 MCP tools (check, assignments, grants)
 - **legion-data**: Migration 015 + 3 Sequel models (RbacRoleAssignment, RbacRunnerGrant, RbacCrossTeamGrant)
+
+## Claims Mappers
+
+Two identity provider mappers convert external claims to Legion principals:
+
+- **EntraClaimsMapper**: Maps Entra ID `roles` and `groups` claims to Legion roles. Uses `module_function` pattern. Configurable `role_map` and `group_map` with `default_role` fallback.
+- **KerberosClaimsMapper**: Maps Kerberos principal (`user@REALM`) and AD group DNs to Legion roles. `map_with_fallback` tries LDAP groups first, falls back to Entra if configured. Injects `auth_method: 'kerberos'` for identity signal tracking in lex-identity.
 
 ## Guards
 

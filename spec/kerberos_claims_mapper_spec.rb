@@ -22,6 +22,29 @@ RSpec.describe Legion::Rbac::KerberosClaimsMapper do
       expect(result[:roles]).to eq(['admin'])
       expect(result[:scope]).to eq('human')
       expect(result[:auth_method]).to eq('kerberos')
+      expect(result[:samaccountname]).to eq('miverso2')
+      expect(result[:ad_fqdn]).to eq('ms.ds.uhc.com')
+    end
+
+    it 'includes profile attributes when provided' do
+      result = described_class.map(
+        principal:  'miverso2@MS.DS.UHC.COM',
+        groups:     [],
+        role_map:   role_map,
+        first_name: 'Matthew',
+        last_name:  'Iverson',
+        email:      'miverso2@uhc.com'
+      )
+      expect(result[:first_name]).to eq('Matthew')
+      expect(result[:last_name]).to eq('Iverson')
+      expect(result[:email]).to eq('miverso2@uhc.com')
+    end
+
+    it 'omits nil profile attributes via compact' do
+      result = described_class.map(principal: 'user@REALM', groups: [], role_map: role_map)
+      expect(result).not_to have_key(:first_name)
+      expect(result).not_to have_key(:last_name)
+      expect(result).not_to have_key(:email)
     end
 
     it 'defaults to worker role when no groups match' do

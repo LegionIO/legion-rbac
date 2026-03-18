@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-18
+
+### Added
+- `samaccountname`, `ad_fqdn`, `first_name`, `last_name`, `email`, `display_name` attributes on `Principal`
+- `from_claims` extracts identity attributes from Kerberos claims
+- `KerberosClaimsMapper.map` emits `samaccountname` and `ad_fqdn` from principal, accepts `**profile` kwargs
+- `KerberosClaimsMapper.map_with_fallback` passes profile through to `map`
+
+### Changed
+- `KerberosClaimsMapper.map` now returns `.compact` hash (omits nil values)
+
+## [0.2.0] - 2026-03-17
+
 ### Added
 - `KerberosClaimsMapper` module: maps Kerberos principals and AD group memberships to Legion roles
 - LDAP group-to-role mapping with configurable `role_map`

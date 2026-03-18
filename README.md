@@ -12,6 +12,7 @@ Role-based access control for LegionIO, following Vault-style flat policy patter
 - Dual-mode store: DB-backed via Sequel or static fallback
 - Entra ID claims mapping (roles and groups to Legion roles)
 - Kerberos claims mapping (AD group DNs to Legion roles, with Entra fallback)
+- Rich identity profile from AD/LDAP (name, email, title, department, company, location)
 - Fully optional: guarded by `if defined?(Legion::Rbac)` in LegionIO
 
 ## Installation
@@ -36,6 +37,12 @@ Legion::Rbac.setup
 ```ruby
 principal = Legion::Rbac::Principal.new(id: 'user-1', roles: [:worker], team: 'team-a')
 Legion::Rbac.authorize!(principal: principal, action: :execute, resource: 'runners/lex-http/request/get')
+
+# Kerberos principals carry full AD profile
+principal.first_name    # => "Jane"
+principal.title         # => "Senior Engineer"
+principal.department    # => "Platform Engineering"
+principal.profile       # => { first_name: "Jane", last_name: "Doe", ... }
 ```
 
 ### Execution Authorization

@@ -46,7 +46,29 @@ lib/legion/rbac/kerberos_claims_mapper.rb # Kerberos principal + AD groups -> Le
 Two identity provider mappers convert external claims to Legion principals:
 
 - **EntraClaimsMapper**: Maps Entra ID `roles` and `groups` claims to Legion roles. Uses `module_function` pattern. Configurable `role_map` and `group_map` with `default_role` fallback.
-- **KerberosClaimsMapper**: Maps Kerberos principal (`user@REALM`) and AD group DNs to Legion roles. `map_with_fallback` tries LDAP groups first, falls back to Entra if configured. Injects `auth_method: 'kerberos'` for identity signal tracking in lex-identity.
+- **KerberosClaimsMapper**: Maps Kerberos principal (`user@REALM`) and AD group DNs to Legion roles. `map_with_fallback` tries LDAP groups first, falls back to Entra if configured. Passes through all `**profile` kwargs (identity + org attributes) from LDAP into the claims hash.
+
+## Principal Identity Model
+
+`Principal` carries core identity (`id`, `type`, `roles`, `team`, `auth_method`, `samaccountname`, `ad_fqdn`) plus a `profile` hash of extended attributes populated from AD/LDAP:
+
+| Accessor | LDAP Source | Example |
+|----------|-------------|---------|
+| `first_name` | `givenName` | Jane |
+| `last_name` | `sn` | Doe |
+| `email` | `mail` | jane.doe@example.com |
+| `display_name` | `displayName` | Doe, Jane A |
+| `title` | `title` | Senior Engineer |
+| `department` | `department` | Platform Engineering |
+| `company` | `company` | Acme Corp |
+| `city` | `l` | Minneapolis |
+| `state` | `st` | MN |
+| `country` | `co` | USA |
+| `country_code` | `c` | US |
+| `cn` | `cn` | jdoe1 |
+| `ad_created_at` | `whenCreated` | 20200115093012.0Z |
+
+All profile fields are accessible as direct methods (`principal.title`) or via `principal.profile` hash.
 
 ## Guards
 

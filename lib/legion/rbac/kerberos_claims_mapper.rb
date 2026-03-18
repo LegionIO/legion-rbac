@@ -18,13 +18,10 @@ module Legion
           sub:            username,
           samaccountname: username,
           ad_fqdn:        realm&.downcase,
-          first_name:     profile[:first_name],
-          last_name:      profile[:last_name],
-          email:          profile[:email],
-          display_name:   profile[:display_name],
           roles:          roles,
           scope:          'human',
-          auth_method:    'kerberos'
+          auth_method:    'kerberos',
+          **profile
         }.compact
       end
 

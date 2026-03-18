@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-03-18
+
+### Added
+- Organizational profile attributes on `Principal`: `title`, `department`, `company`, `city`, `state`, `country`, `country_code`, `cn`, `ad_created_at`
+- `Principal#profile` hash accessor for all extended identity attributes
+- `PROFILE_KEYS` constant defines the full set of identity/org fields
+- `define_method` generates individual accessors from `PROFILE_KEYS`
+
+### Changed
+- `Principal` constructor accepts `**extra` kwargs for profile fields (replaces individual keyword args)
+- `from_claims` iterates `PROFILE_KEYS` to extract all profile fields from claims
+- `KerberosClaimsMapper.map` uses `**profile` splat directly (passes all profile kwargs through)
+
 ## [0.2.1] - 2026-03-18
 
 ### Added

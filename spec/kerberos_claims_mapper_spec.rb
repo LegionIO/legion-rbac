@@ -31,20 +31,31 @@ RSpec.describe Legion::Rbac::KerberosClaimsMapper do
         principal:  'miverso2@MS.DS.UHC.COM',
         groups:     [],
         role_map:   role_map,
-        first_name: 'Matthew',
-        last_name:  'Iverson',
-        email:      'miverso2@uhc.com'
+        first_name: 'Jane',
+        last_name:  'Doe',
+        email:      'jane.doe@example.com',
+        title:      'Senior Engineer',
+        department: 'Platform Engineering',
+        company:    'Acme Corp',
+        city:       'Minneapolis',
+        state:      'MN',
+        country:    'USA'
       )
-      expect(result[:first_name]).to eq('Matthew')
-      expect(result[:last_name]).to eq('Iverson')
-      expect(result[:email]).to eq('miverso2@uhc.com')
+      expect(result[:first_name]).to eq('Jane')
+      expect(result[:last_name]).to eq('Doe')
+      expect(result[:email]).to eq('jane.doe@example.com')
+      expect(result[:title]).to eq('Senior Engineer')
+      expect(result[:department]).to eq('Platform Engineering')
+      expect(result[:company]).to eq('Acme Corp')
+      expect(result[:city]).to eq('Minneapolis')
+      expect(result[:state]).to eq('MN')
     end
 
     it 'omits nil profile attributes via compact' do
       result = described_class.map(principal: 'user@REALM', groups: [], role_map: role_map)
       expect(result).not_to have_key(:first_name)
-      expect(result).not_to have_key(:last_name)
-      expect(result).not_to have_key(:email)
+      expect(result).not_to have_key(:title)
+      expect(result).not_to have_key(:department)
     end
 
     it 'defaults to worker role when no groups match' do

@@ -3,12 +3,16 @@
 module Legion
   module Rbac
     class Principal
+      PROFILE_KEYS = %i[
+        first_name last_name email display_name cn title
+        department company country country_code city state ad_created_at
+      ].freeze
+
       attr_reader :id, :type, :roles, :team, :auth_method,
-                  :samaccountname, :ad_fqdn, :first_name, :last_name, :email, :display_name
+                  :samaccountname, :ad_fqdn, :profile
 
       def initialize(id:, type: :human, roles: [], team: nil, auth_method: nil, # rubocop:disable Metrics/ParameterLists
-                     samaccountname: nil, ad_fqdn: nil, first_name: nil, last_name: nil,
-                     email: nil, display_name: nil)
+                     samaccountname: nil, ad_fqdn: nil, **extra)
         @id = id
         @type = type.to_sym
         @roles = roles.map(&:to_s)
@@ -16,10 +20,11 @@ module Legion
         @auth_method = auth_method
         @samaccountname = samaccountname
         @ad_fqdn = ad_fqdn
-        @first_name = first_name
-        @last_name = last_name
-        @email = email
-        @display_name = display_name
+        @profile = extra.slice(*PROFILE_KEYS).compact
+      end
+
+      PROFILE_KEYS.each do |key|
+        define_method(key) { @profile[key] }
       end
 
       def self.from_claims(claims)
@@ -29,12 +34,9 @@ module Legion
           team:           claims[:team] || claims['team'],
           auth_method:    claims[:auth_method] || claims['auth_method'],
           samaccountname: claims[:samaccountname] || claims['samaccountname'],
-          ad_fqdn:        claims[:ad_fqdn] || claims['ad_fqdn'],
-          first_name:     claims[:first_name] || claims['first_name'],
-          last_name:      claims[:last_name] || claims['last_name'],
-          email:          claims[:email] || claims['email'],
-          display_name:   claims[:display_name] || claims['display_name']
+          ad_fqdn:        claims[:ad_fqdn] || claims['ad_fqdn']
         }
+        PROFILE_KEYS.each { |key| common[key] = claims[key] || claims[key.to_s] }
 
         if scope == 'worker'
           new(id: claims[:worker_id] || claims['worker_id'], type: :worker, **common)

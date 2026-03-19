@@ -2,6 +2,8 @@
 
 Role-based access control for LegionIO, following Vault-style flat policy patterns.
 
+**Version**: 0.2.2
+
 ## Features
 
 - Flat policy model: deny-always-wins, no role inheritance

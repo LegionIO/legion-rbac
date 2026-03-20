@@ -50,6 +50,7 @@ module Legion
         if result[:allowed]
           @app.call(env)
         else
+          Legion::Events.emit('rbac.deny', reason: result[:reason]) if defined?(Legion::Events)
           denied_response(result[:reason])
         end
       end

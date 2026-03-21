@@ -1,6 +1,9 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.3] - 2026-03-20
+
+### Added
+- Emit `rbac.deny` event on access denial for safety metrics integration
 
 ## [0.2.2] - 2026-03-18
 

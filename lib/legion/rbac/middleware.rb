@@ -31,6 +31,8 @@ module Legion
       end
 
       def call(env)
+        return @app.call(env) unless enforce?
+
         path = env['PATH_INFO']
         return @app.call(env) if skip_path?(path)
         return @app.call(env) if invoke_route?(path)
@@ -50,6 +52,7 @@ module Legion
         if result[:allowed]
           @app.call(env)
         else
+          Legion::Events.emit('rbac.deny', reason: result[:reason]) if defined?(Legion::Events)
           denied_response(result[:reason])
         end
       end
@@ -76,6 +79,14 @@ module Legion
           return perm if path.match?(/\A#{regex}\z/)
         end
         nil
+      end
+
+      def enforce?
+        return false unless defined?(Legion::Settings)
+
+        Legion::Settings[:rbac][:enforce]
+      rescue StandardError
+        true
       end
 
       def denied_response(reason)

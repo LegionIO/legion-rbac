@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.5] - 2026-03-22
+
+### Changed
+- Added logging to silent rescue block in middleware.rb enforce? method
+
+## [0.2.4] - 2026-03-22
+
+### Changed
+- Bumped version for rbac.deny event emission
+
 ## [0.2.3] - 2026-03-20
 
 ### Added

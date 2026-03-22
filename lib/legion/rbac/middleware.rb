@@ -85,7 +85,8 @@ module Legion
         return false unless defined?(Legion::Settings)
 
         Legion::Settings[:rbac][:enforce]
-      rescue StandardError
+      rescue StandardError => e
+        Legion::Logging.warn("Legion::Rbac::Middleware#enforce? failed, defaulting to enforce: #{e.message}") if defined?(Legion::Logging)
         true
       end
 

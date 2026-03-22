@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.7] - 2026-03-22
+
+### Changed
+- Corrected legion-settings version constraint to `>= 1.3.12`
+
 ## [0.2.6] - 2026-03-22
 
 ### Changed

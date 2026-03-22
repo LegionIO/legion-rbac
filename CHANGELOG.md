@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.6] - 2026-03-22
+
+### Changed
+- Updated gemspec dependency version constraints to explicit 3-part versions: `legion-json >= 1.2.0`, `legion-settings >= 1.3.9`
+
 ## [0.2.5] - 2026-03-22
 
 ### Changed

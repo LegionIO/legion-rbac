@@ -11,6 +11,7 @@ require 'legion/rbac/team_scope'
 require 'legion/rbac/store'
 require 'legion/rbac/entra_claims_mapper'
 require 'legion/rbac/middleware'
+require 'legion/rbac/routes'
 
 module Legion
   module Rbac
@@ -26,10 +27,20 @@ module Legion
     class << self
       attr_reader :role_index
 
+      def register_routes
+        return unless defined?(Legion::API) && Legion::API.respond_to?(:register_library_routes)
+
+        Legion::API.register_library_routes('rbac', Legion::Rbac::Routes)
+        Legion::Logging.debug 'Legion::Rbac routes registered with API' if defined?(Legion::Logging)
+      rescue StandardError => e
+        Legion::Logging.warn "Legion::Rbac route registration failed: #{e.message}" if defined?(Legion::Logging)
+      end
+
       def setup
         Legion::Settings.merge_settings(:rbac, Legion::Rbac::Settings.default)
         @role_index = ConfigLoader.load_roles
         Legion::Settings[:rbac][:connected] = true
+        register_routes
       end
 
       def shutdown

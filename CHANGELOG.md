@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.8] - 2026-03-28
+
+### Added
+- `Legion::Rbac::Routes` self-registering Sinatra route module (`lib/legion/rbac/routes.rb`): extracts all `/api/rbac/*` route handlers from LegionIO. Self-registers with `Legion::API.register_library_routes('rbac', Routes)` during boot. Includes fallback helpers for standalone mounting.
+
 ## [0.2.7] - 2026-03-22
 
 ### Changed

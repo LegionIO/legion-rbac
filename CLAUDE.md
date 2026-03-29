@@ -2,7 +2,7 @@
 
 **Parent**: `/Users/miverso2/rubymine/legion/CLAUDE.md`
 **GitHub**: https://github.com/LegionIO/legion-rbac
-**Version**: 0.2.2
+**Version**: 0.2.7
 
 Optional RBAC gem for LegionIO. Vault-style flat policy model with deny-always-wins semantics.
 

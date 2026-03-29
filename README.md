@@ -2,7 +2,7 @@
 
 Role-based access control for LegionIO, following Vault-style flat policy patterns.
 
-**Version**: 0.2.2
+**Version**: 0.2.7
 
 ## Features
 

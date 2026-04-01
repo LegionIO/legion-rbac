@@ -2,7 +2,7 @@
 
 Role-based access control for LegionIO, following Vault-style flat policy patterns.
 
-**Version**: 0.2.7
+**Version**: 0.2.9
 
 ## Features
 
@@ -51,6 +51,36 @@ principal.profile       # => { first_name: "Jane", last_name: "Doe", ... }
 
 ```ruby
 Legion::Rbac.authorize_execution!(principal: principal, runner_class: 'Legion::Extensions::LexHttp::Runners::Request', function: :get)
+```
+
+### Capability Audit (Extension Security)
+
+Audit an extension's source code for dangerous patterns and enforce capability declarations:
+
+```ruby
+result = Legion::Rbac.audit_extension(
+  extension_name: 'lex-codegen',
+  source_path: '/path/to/lex-codegen/lib',
+  declared_capabilities: [:shell_execute, :filesystem_write]
+)
+result.blocked?               # => false (all capabilities declared)
+result.detected_capabilities  # => [:shell_execute, :filesystem_write]
+
+# Query the capability registry
+Legion::Rbac::CapabilityRegistry.for_extension('lex-codegen')
+# => [:filesystem_write, :shell_execute]
+
+Legion::Rbac::CapabilityRegistry.extensions_with(:shell_execute)
+# => ["lex-codegen", "lex-exec"]
+```
+
+### Capability Authorization
+
+Check if a principal's role allows a specific capability:
+
+```ruby
+Legion::Rbac.authorize_capability!(principal: principal, capability: :shell_execute, extension_name: 'lex-codegen')
+# Raises AccessDenied if the principal's role denies shell_execute
 ```
 
 ### Dry-Run Check

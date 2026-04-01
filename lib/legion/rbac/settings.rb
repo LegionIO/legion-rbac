@@ -12,7 +12,16 @@ module Legion
           static_assignments: [],
           route_permissions:  {},
           roles:              default_roles,
-          entra:              entra_defaults
+          entra:              entra_defaults,
+          capability_audit:   capability_audit_defaults
+        }
+      end
+
+      def self.capability_audit_defaults
+        {
+          enabled:           true,
+          mode:              'enforce',
+          undeclared_policy: 'block'
         }
       end
 
@@ -41,25 +50,27 @@ module Legion
 
       def self.worker_role
         {
-          description: 'Execute assigned runners within team scope',
-          permissions: [
+          description:        'Execute assigned runners within team scope',
+          permissions:        [
             { resource: 'runners/*', actions: %w[execute] },
             { resource: 'tasks/*', actions: %w[read create] },
             { resource: 'schedules/*', actions: %w[read] },
             { resource: 'workers/self', actions: %w[read] }
           ],
-          deny:        [
+          deny:               [
             { resource: 'runners/lex-extinction/*' },
             { resource: 'runners/lex-governance/*' },
             { resource: 'workers/*/lifecycle' }
-          ]
+          ],
+          capability_grants:  %w[network_outbound filesystem_write],
+          capability_denials: %w[shell_execute code_eval]
         }
       end
 
       def self.supervisor_role
         {
-          description: 'Manage workers and schedules within team scope',
-          permissions: [
+          description:        'Manage workers and schedules within team scope',
+          permissions:        [
             { resource: 'runners/*', actions: %w[execute] },
             { resource: 'tasks/*', actions: %w[read create delete] },
             { resource: 'schedules/*', actions: %w[read create update delete] },
@@ -67,28 +78,32 @@ module Legion
             { resource: 'extensions/*', actions: %w[read] },
             { resource: 'events/*', actions: %w[read] }
           ],
-          deny:        [
+          deny:               [
             { resource: 'runners/lex-extinction/escalate', above_level: 2 },
             { resource: 'workers/*/lifecycle/terminated' }
-          ]
+          ],
+          capability_grants:  %w[network_outbound filesystem_write shell_execute],
+          capability_denials: %w[code_eval]
         }
       end
 
       def self.admin_role
         {
-          description: 'Full access, cross-team capability',
-          permissions: [
+          description:        'Full access, cross-team capability',
+          permissions:        [
             { resource: '*', actions: %w[read create update delete execute manage] }
           ],
-          deny:        [],
-          cross_team:  true
+          deny:               [],
+          cross_team:         true,
+          capability_grants:  %w[shell_execute code_eval network_outbound filesystem_write],
+          capability_denials: []
         }
       end
 
       def self.governance_observer_role
         {
-          description: 'Read-only visibility across all teams for audit and compliance',
-          permissions: [
+          description:        'Read-only visibility across all teams for audit and compliance',
+          permissions:        [
             { resource: 'workers/*', actions: %w[read] },
             { resource: 'tasks/*', actions: %w[read] },
             { resource: 'events/*', actions: %w[read] },
@@ -96,8 +111,10 @@ module Legion
             { resource: 'extensions/*', actions: %w[read] },
             { resource: 'runners/lex-governance/*', actions: %w[read execute] }
           ],
-          deny:        [],
-          cross_team:  true
+          deny:               [],
+          cross_team:         true,
+          capability_grants:  [],
+          capability_denials: %w[shell_execute code_eval network_outbound filesystem_write]
         }
       end
     end

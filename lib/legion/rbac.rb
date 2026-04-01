@@ -12,6 +12,8 @@ require 'legion/rbac/store'
 require 'legion/rbac/entra_claims_mapper'
 require 'legion/rbac/middleware'
 require 'legion/rbac/routes'
+require 'legion/rbac/capability_audit'
+require 'legion/rbac/capability_registry'
 
 module Legion
   module Rbac
@@ -58,6 +60,31 @@ module Legion
       def authorize_execution!(principal:, runner_class:, function:, **)
         runner_path = build_runner_path(runner_class, function)
         authorize!(principal: principal, action: :execute, resource: runner_path, **)
+      end
+
+      def audit_extension(extension_name:, source_path:, declared_capabilities: [])
+        result = CapabilityAudit.audit(
+          extension_name:        extension_name,
+          source_path:           source_path,
+          declared_capabilities: declared_capabilities
+        )
+        CapabilityRegistry.register(
+          extension_name,
+          capabilities: result.detected_capabilities,
+          audit_result: result
+        )
+        result
+      end
+
+      def authorize_capability!(principal:, capability:, extension_name: nil)
+        result = PolicyEngine.evaluate_capability(
+          principal:      principal,
+          capability:     capability,
+          extension_name: extension_name
+        )
+        raise AccessDenied, result unless result[:allowed]
+
+        result
       end
 
       private

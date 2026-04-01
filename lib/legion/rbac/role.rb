@@ -5,9 +5,11 @@ require 'legion/rbac/permission'
 module Legion
   module Rbac
     class Role
-      attr_reader :name, :description, :permissions, :deny_rules, :cross_team
+      attr_reader :name, :description, :permissions, :deny_rules, :cross_team,
+                  :capability_grants, :capability_denials
 
-      def initialize(name:, description: '', permissions: [], deny: [], cross_team: false)
+      def initialize(name:, description: '', permissions: [], deny: [], cross_team: false,
+                     capability_grants: [], capability_denials: [])
         @name = name.to_s
         @description = description
         @permissions = permissions.map do |p|
@@ -17,10 +19,19 @@ module Legion
           DenyRule.new(resource_pattern: d[:resource], above_level: d[:above_level])
         end
         @cross_team = cross_team
+        @capability_grants = Array(capability_grants).map(&:to_sym)
+        @capability_denials = Array(capability_denials).map(&:to_sym)
       end
 
       def cross_team?
         @cross_team == true
+      end
+
+      def capability_allowed?(capability)
+        cap = capability.to_sym
+        return false if @capability_denials.include?(cap)
+
+        @capability_grants.include?(cap)
       end
     end
   end

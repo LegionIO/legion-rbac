@@ -9,11 +9,13 @@ module Legion
         roles_config ||= Legion::Settings[:rbac][:roles]
         roles_config.each_with_object({}) do |(name, config), index|
           index[name.to_sym] = Role.new(
-            name:        name,
-            description: config[:description] || '',
-            permissions: config[:permissions] || [],
-            deny:        config[:deny] || [],
-            cross_team:  config[:cross_team] || false
+            name:               name,
+            description:        config[:description] || '',
+            permissions:        config[:permissions] || [],
+            deny:               config[:deny] || [],
+            cross_team:         config[:cross_team] || false,
+            capability_grants:  config[:capability_grants] || [],
+            capability_denials: config[:capability_denials] || []
           )
         end
       end

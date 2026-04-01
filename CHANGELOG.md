@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.9] - 2026-03-31
+
+### Added
+- `Legion::Rbac::CapabilityAudit` module: static analysis of extension source code to detect dangerous patterns (`system`, `exec`, `Open3`, backticks, `eval`, `Net::HTTP`, `Faraday`, `File.write`, `FileUtils`) and map them to required capabilities (`shell_execute`, `code_eval`, `network_outbound`, `filesystem_write`). Blocks extensions with undeclared capabilities in enforce mode, warns in warn mode. Configurable via `rbac.capability_audit` settings.
+- `Legion::Rbac::CapabilityAudit::AuditResult` value object with `blocked?`, `undeclared`, `detected_capabilities`, `declared_capabilities`, and `to_h` conversion.
+- `Legion::Rbac::CapabilityRegistry` module: thread-safe registry tracking which extensions have which capabilities. `register`, `for_extension`, `extensions_with`, `audit_result_for`, `all`, `registered?`, `clear!` methods.
+- `Legion::Rbac::PolicyEngine.evaluate_capability`: runtime RBAC gating for capabilities — checks if a principal's roles grant or deny a specific capability, with deny-always-wins semantics and dry-run support.
+- `Legion::Rbac::Role#capability_allowed?`: per-role capability check (denial takes precedence over grant).
+- `capability_grants` and `capability_denials` fields on all four built-in roles: admin (all granted), supervisor (shell + network + filesystem, code_eval denied), worker (network + filesystem, shell + eval denied), governance-observer (all denied).
+- `Legion::Rbac.audit_extension`: convenience method that audits an extension and registers it in the CapabilityRegistry.
+- `Legion::Rbac.authorize_capability!`: raises `AccessDenied` when a principal lacks the required capability.
+- `rbac.capability_audit` settings: `enabled` (default true), `mode` (enforce/warn), `undeclared_policy` (block).
+- 43 new specs (159 total) covering all three phases of the capability enforcement system.
+
 ## [0.2.8] - 2026-03-28
 
 ### Added

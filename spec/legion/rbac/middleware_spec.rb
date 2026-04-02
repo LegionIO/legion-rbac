@@ -23,6 +23,10 @@ RSpec.describe Legion::Rbac::Middleware do
     Legion::Rbac::Principal.new(id: 'worker-1', roles: ['worker'])
   end
 
+  def supervisor_principal(team: 'team-a')
+    Legion::Rbac::Principal.new(id: 'supervisor-1', roles: ['supervisor'], team: team)
+  end
+
   describe 'skip paths' do
     it 'passes /api/health through without auth' do
       status, = middleware.call(env_for('GET', '/api/health'))
@@ -72,6 +76,27 @@ RSpec.describe Legion::Rbac::Middleware do
 
     it 'denies worker from managing settings' do
       status, = middleware.call(env_for('PUT', '/api/settings/rbac', principal: worker_principal))
+      expect(status).to eq(403)
+    end
+
+    it 'honors permission overrides from the rack env' do
+      status, = middleware.call(
+        env_for('GET', '/api/tasks', principal: worker_principal).merge(
+          'legion.rbac.resource' => 'settings/*',
+          'legion.rbac.action'   => 'manage'
+        )
+      )
+
+      expect(status).to eq(403)
+    end
+
+    it 'enforces team scope when target_team is supplied in the rack env' do
+      status, = middleware.call(
+        env_for('PATCH', '/api/workers/worker-2', principal: supervisor_principal(team: 'team-a')).merge(
+          'legion.rbac.target_team' => 'team-b'
+        )
+      )
+
       expect(status).to eq(403)
     end
 

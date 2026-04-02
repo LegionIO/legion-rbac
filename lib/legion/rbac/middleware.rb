@@ -70,24 +70,21 @@ module Legion
           log.warn("RBAC middleware denied method=#{env['REQUEST_METHOD']} path=#{path} reason=unmapped_route")
           return denied_response('unmapped route')
         end
-
-        result = PolicyEngine.evaluate(
-          principal: principal,
-          action:    perm[:action],
-          resource:  perm[:resource]
-        )
+        perm = effective_permission(env, perm)
+        result = policy_result(env, principal, perm)
 
         if result[:allowed]
           log.info(
             "RBAC middleware allowed principal=#{principal.id} method=#{env['REQUEST_METHOD']} " \
-            "path=#{path} resource=#{perm[:resource]} action=#{perm[:action]}"
+            "path=#{path} resource=#{perm[:resource]} action=#{perm[:action]} " \
+            "target_team=#{env['legion.rbac.target_team'] || 'none'}"
           )
           @app.call(env)
         else
-          Legion::Events.emit('rbac.deny', reason: result[:reason]) if defined?(Legion::Events)
           log.warn(
             "RBAC middleware denied principal=#{principal.id} method=#{env['REQUEST_METHOD']} " \
-            "path=#{path} reason=#{result[:reason]}"
+            "path=#{path} resource=#{perm[:resource]} action=#{perm[:action]} " \
+            "target_team=#{env['legion.rbac.target_team'] || 'none'} reason=#{result[:reason]}"
           )
           denied_response(result[:reason])
         end
@@ -145,6 +142,50 @@ module Legion
         log.debug("RBAC middleware denied_response reason=#{reason}")
         body = Legion::JSON.dump({ error: 'access_denied', reason: reason })
         [403, { 'content-type' => 'application/json' }, [body]]
+      end
+
+      def effective_permission(env, permission)
+        resource = env['legion.rbac.resource'] || permission[:resource]
+        action = normalize_action(env['legion.rbac.action']) || permission[:action]
+        return permission if resource == permission[:resource] && action == permission[:action]
+
+        log.info(
+          "RBAC middleware permission_override method=#{env['REQUEST_METHOD']} path=#{env['PATH_INFO']} " \
+          "resource=#{resource} action=#{action}"
+        )
+        permission.merge(resource: resource, action: action)
+      end
+
+      def normalize_action(action)
+        action&.to_sym
+      end
+
+      def policy_result(env, principal, permission)
+        PolicyEngine.evaluate(
+          principal:   principal,
+          action:      permission[:action],
+          resource:    permission[:resource],
+          target_team: env['legion.rbac.target_team'],
+          **request_context(env)
+        )
+      end
+
+      def request_context(env)
+        {
+          method:         env['REQUEST_METHOD'],
+          path:           env['PATH_INFO'],
+          source:         request_source(env),
+          correlation_id: request_correlation_id(env)
+        }.compact
+      end
+
+      def request_source(env)
+        env['legion.rbac.source'] || env['legion.request_source'] || env['HTTP_X_LEGION_SOURCE'] || 'rbac.middleware'
+      end
+
+      def request_correlation_id(env)
+        env['legion.correlation_id'] || env['HTTP_X_REQUEST_ID'] || env['HTTP_X_CORRELATION_ID'] ||
+          env['action_dispatch.request_id'] || env['REQUEST_ID']
       end
 
       def compiled_route_permissions

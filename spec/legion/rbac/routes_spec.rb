@@ -2,6 +2,14 @@
 
 require 'spec_helper'
 
+unless defined?(Legion::Events)
+  module Legion
+    module Events
+      def self.emit(*); end
+    end
+  end
+end
+
 RSpec.describe Legion::Rbac::Routes do
   it 'is a module' do
     expect(Legion::Rbac::Routes).to be_a(Module)
@@ -50,6 +58,98 @@ RSpec.describe Legion::Rbac::Routes do
       expect(described_class.send(:collection_limit, { 'limit' => '9999' })).to eq(described_class::MAX_COLLECTION_LIMIT)
       expect(described_class.send(:collection_limit, { 'limit' => 'nope' })).to eq(described_class::DEFAULT_COLLECTION_LIMIT)
       expect(described_class.send(:collection_offset, { 'offset' => '-4' })).to eq(0)
+    end
+  end
+
+  describe '.request_correlation_id' do
+    it 'prefers explicit legion correlation ids before headers' do
+      env = {
+        'legion.correlation_id' => 'legion-req',
+        'HTTP_X_REQUEST_ID'     => 'header-req',
+        'HTTP_X_CORRELATION_ID' => 'header-corr'
+      }
+
+      expect(described_class.send(:request_correlation_id, env)).to eq('legion-req')
+    end
+  end
+
+  describe '.request_source' do
+    it 'defaults to rbac.api' do
+      expect(described_class.send(:request_source, {})).to eq('rbac.api')
+    end
+  end
+
+  describe '.policy_change_payload' do
+    it 'includes audit metadata and normalized record values' do
+      context = described_class.send(
+        :policy_change_context,
+        actor_id:       'alice',
+        source:         'rbac.api',
+        correlation_id: 'req-1',
+        method:         'POST',
+        path:           '/api/rbac/assignments'
+      )
+
+      payload = described_class.send(
+        :policy_change_payload,
+        change_type:   'assignment.created',
+        target_type:   'role_assignment',
+        record_values: { 'id' => 7, 'principal_id' => 'user-1', 'role' => 'admin', 'team' => 'ops' },
+        context:       context
+      )
+
+      expect(payload).to include(
+        change_type:    'assignment.created',
+        target_type:    'role_assignment',
+        target_id:      7,
+        actor_id:       'alice',
+        source:         'rbac.api',
+        correlation_id: 'req-1',
+        method:         'POST',
+        path:           '/api/rbac/assignments',
+        principal_id:   'user-1',
+        role:           'admin',
+        team:           'ops'
+      )
+    end
+  end
+
+  describe '.emit_policy_changed' do
+    it 'emits rbac.policy_changed with the built payload' do
+      allow(Legion::Events).to receive(:emit)
+      context = described_class.send(
+        :policy_change_context,
+        actor_id:       'bob',
+        source:         'rbac.api',
+        correlation_id: 'req-2',
+        method:         'DELETE',
+        path:           '/api/rbac/grants/9'
+      )
+
+      described_class.send(
+        :emit_policy_changed,
+        change_type:   'runner_grant.deleted',
+        target_type:   'runner_grant',
+        record_values: { id: 9, team: 'alpha', runner_pattern: 'lex/*', actions: 'execute' },
+        context:       context
+      )
+
+      expect(Legion::Events).to have_received(:emit).with(
+        'rbac.policy_changed',
+        hash_including(
+          change_type:    'runner_grant.deleted',
+          target_type:    'runner_grant',
+          target_id:      9,
+          actor_id:       'bob',
+          source:         'rbac.api',
+          correlation_id: 'req-2',
+          method:         'DELETE',
+          path:           '/api/rbac/grants/9',
+          team:           'alpha',
+          runner_pattern: 'lex/*',
+          actions:        'execute'
+        )
+      )
     end
   end
 end

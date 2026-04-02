@@ -9,6 +9,7 @@
 - Explicitly load full `legion/logging` from RBAC library files so `require 'legion/rbac'` boots cleanly without preloading logging elsewhere.
 - Exposed `KerberosClaimsMapper` from the gem entrypoint and preserved caller-supplied fallback defaults/profile attributes when Kerberos fallback delegates to Entra.
 - Made `rbac.enabled` disable RBAC setup/enforcement paths consistently and normalized malformed `expires_at` inputs into validation errors with explicit time parsing.
+- Expanded middleware route coverage to include `/api/rbac/*`, honored `rbac.route_permissions` overrides, and compiled route matchers once per permission table.
 
 ## [0.2.9] - 2026-03-31
 

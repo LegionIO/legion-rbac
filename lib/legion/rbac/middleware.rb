@@ -9,23 +9,35 @@ module Legion
 
       SKIP_PATHS = %w[/api/health /api/ready /api/openapi.json].freeze
 
-      ROUTE_PERMISSIONS = {
-        'GET /api/tasks'          => { resource: 'tasks/*', action: :read },
-        'POST /api/tasks'         => { resource: 'tasks/*', action: :create },
-        'DELETE /api/tasks/*'     => { resource: 'tasks/*', action: :delete },
-        'GET /api/workers'        => { resource: 'workers/team', action: :read },
-        'POST /api/workers'       => { resource: 'workers/team', action: :create },
-        'PATCH /api/workers/*'    => { resource: 'workers/team', action: :lifecycle },
-        'PUT /api/settings/*'     => { resource: 'settings/*', action: :manage },
-        'POST /api/transport/*'   => { resource: 'transport/*', action: :manage },
-        'GET /api/events'         => { resource: 'events/*', action: :read },
-        'GET /api/events/*'       => { resource: 'events/*', action: :read },
-        'GET /api/extensions'     => { resource: 'extensions/*', action: :read },
-        'GET /api/extensions/*'   => { resource: 'extensions/*', action: :read },
-        'GET /api/schedules'      => { resource: 'schedules/*', action: :read },
-        'POST /api/schedules'     => { resource: 'schedules/*', action: :create },
-        'PUT /api/schedules/*'    => { resource: 'schedules/*', action: :update },
-        'DELETE /api/schedules/*' => { resource: 'schedules/*', action: :delete }
+      DEFAULT_ROUTE_PERMISSIONS = {
+        'GET /api/tasks'                       => { resource: 'tasks/*', action: :read },
+        'POST /api/tasks'                      => { resource: 'tasks/*', action: :create },
+        'DELETE /api/tasks/*'                  => { resource: 'tasks/*', action: :delete },
+        'GET /api/workers'                     => { resource: 'workers/team', action: :read },
+        'POST /api/workers'                    => { resource: 'workers/team', action: :create },
+        'PATCH /api/workers/*'                 => { resource: 'workers/team', action: :lifecycle },
+        'PUT /api/settings/*'                  => { resource: 'settings/*', action: :manage },
+        'POST /api/transport/*'                => { resource: 'transport/*', action: :manage },
+        'GET /api/events'                      => { resource: 'events/*', action: :read },
+        'GET /api/events/*'                    => { resource: 'events/*', action: :read },
+        'GET /api/extensions'                  => { resource: 'extensions/*', action: :read },
+        'GET /api/extensions/*'                => { resource: 'extensions/*', action: :read },
+        'GET /api/schedules'                   => { resource: 'schedules/*', action: :read },
+        'POST /api/schedules'                  => { resource: 'schedules/*', action: :create },
+        'PUT /api/schedules/*'                 => { resource: 'schedules/*', action: :update },
+        'DELETE /api/schedules/*'              => { resource: 'schedules/*', action: :delete },
+        'GET /api/rbac/roles'                  => { resource: 'settings/rbac', action: :read },
+        'GET /api/rbac/roles/*'                => { resource: 'settings/rbac', action: :read },
+        'POST /api/rbac/check'                 => { resource: 'settings/rbac', action: :read },
+        'GET /api/rbac/assignments'            => { resource: 'settings/rbac', action: :read },
+        'POST /api/rbac/assignments'           => { resource: 'settings/rbac', action: :manage },
+        'DELETE /api/rbac/assignments/*'       => { resource: 'settings/rbac', action: :manage },
+        'GET /api/rbac/grants'                 => { resource: 'settings/rbac', action: :read },
+        'POST /api/rbac/grants'                => { resource: 'settings/rbac', action: :manage },
+        'DELETE /api/rbac/grants/*'            => { resource: 'settings/rbac', action: :manage },
+        'GET /api/rbac/grants/cross-team'      => { resource: 'settings/rbac', action: :read },
+        'POST /api/rbac/grants/cross-team'     => { resource: 'settings/rbac', action: :manage },
+        'DELETE /api/rbac/grants/cross-team/*' => { resource: 'settings/rbac', action: :manage }
       }.freeze
 
       INVOKE_PATTERN = %r{\A/api/extensions/[^/]+/runners/[^/]+/functions/[^/]+/invoke\z}
@@ -101,20 +113,19 @@ module Legion
       end
 
       def find_permission(method, path)
-        key = "#{method} #{path}"
-        if ROUTE_PERMISSIONS.key?(key)
-          log.debug("RBAC middleware route_permission method=#{method} path=#{path} match=exact")
-          return ROUTE_PERMISSIONS[key]
-        end
+        compiled_route_permissions.each do |entry|
+          next unless entry[:method] == method
 
-        ROUTE_PERMISSIONS.each do |pattern, perm|
-          pattern_method, pattern_path = pattern.split(' ', 2)
-          next unless pattern_method == method
-
-          regex = pattern_path.gsub('*', '[^/]+')
-          if path.match?(/\A#{regex}\z/)
-            log.debug("RBAC middleware route_permission method=#{method} path=#{path} match=pattern pattern=#{pattern}")
-            return perm
+          if entry[:exact]
+            if entry[:exact] == path
+              log.debug("RBAC middleware route_permission method=#{method} path=#{path} match=exact")
+              return entry[:permission]
+            end
+          elsif path.match?(entry[:regex])
+            log.debug(
+              "RBAC middleware route_permission method=#{method} path=#{path} match=pattern pattern=#{entry[:pattern]}"
+            )
+            return entry[:permission]
           end
         end
         nil
@@ -134,6 +145,56 @@ module Legion
         log.debug("RBAC middleware denied_response reason=#{reason}")
         body = Legion::JSON.dump({ error: 'access_denied', reason: reason })
         [403, { 'content-type' => 'application/json' }, [body]]
+      end
+
+      def compiled_route_permissions
+        routes = route_permissions
+        cache_key = routes.hash
+        return @compiled_route_permissions if @compiled_route_permissions_key == cache_key
+
+        @compiled_route_permissions = routes.map do |pattern, permission|
+          http_method, path_pattern = pattern.split(' ', 2)
+          entry = {
+            method:     http_method,
+            pattern:    pattern,
+            permission: permission
+          }
+
+          if path_pattern.include?('*')
+            entry[:regex] = route_pattern_regex(path_pattern)
+          else
+            entry[:exact] = path_pattern
+          end
+
+          entry
+        end.freeze
+        @compiled_route_permissions_key = cache_key
+        @compiled_route_permissions
+      end
+
+      def route_permissions
+        DEFAULT_ROUTE_PERMISSIONS.merge(custom_route_permissions)
+      end
+
+      def custom_route_permissions
+        overrides = Legion::Settings[:rbac]&.dig(:route_permissions)
+        return {} unless overrides.is_a?(Hash)
+
+        overrides.each_with_object({}) do |(pattern, permission), normalized|
+          normalized[pattern.to_s] = normalize_permission(permission)
+        end
+      end
+
+      def normalize_permission(permission)
+        {
+          resource: permission[:resource] || permission['resource'],
+          action:   (permission[:action] || permission['action']).to_sym
+        }
+      end
+
+      def route_pattern_regex(path_pattern)
+        segments = path_pattern.split('/').map { |segment| segment == '*' ? '[^/]+' : Regexp.escape(segment) }
+        /\A#{segments.join('/')}\z/
       end
     end
   end

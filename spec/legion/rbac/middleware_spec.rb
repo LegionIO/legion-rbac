@@ -60,6 +60,11 @@ RSpec.describe Legion::Rbac::Middleware do
       expect(status).to eq(200)
     end
 
+    it 'allows admin to access rbac routes' do
+      status, = middleware.call(env_for('GET', '/api/rbac/roles', principal: admin_principal))
+      expect(status).to eq(200)
+    end
+
     it 'allows worker to read tasks' do
       status, = middleware.call(env_for('GET', '/api/tasks', principal: worker_principal))
       expect(status).to eq(200)
@@ -79,6 +84,32 @@ RSpec.describe Legion::Rbac::Middleware do
       _, _, body = middleware.call(env_for('GET', '/api/unknown', principal: admin_principal))
       parsed = Legion::JSON.load(body.first)
       expect(parsed[:error] || parsed['error']).to eq('access_denied')
+    end
+  end
+
+  describe 'route permission overrides' do
+    it 'allows custom routes from settings' do
+      Legion::Settings[:rbac][:route_permissions] = {
+        'GET /api/custom/tasks' => { resource: 'tasks/*', action: :read }
+      }
+
+      status, = middleware.call(env_for('GET', '/api/custom/tasks', principal: worker_principal))
+
+      expect(status).to eq(200)
+    ensure
+      Legion::Settings[:rbac][:route_permissions] = {}
+    end
+
+    it 'overrides default route permissions from settings' do
+      Legion::Settings[:rbac][:route_permissions] = {
+        'GET /api/tasks' => { resource: 'settings/*', action: :manage }
+      }
+
+      status, = middleware.call(env_for('GET', '/api/tasks', principal: worker_principal))
+
+      expect(status).to eq(403)
+    ensure
+      Legion::Settings[:rbac][:route_permissions] = {}
     end
   end
 

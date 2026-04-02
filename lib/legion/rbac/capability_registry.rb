@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'legion/logging/helper'
+require 'legion/logging'
 require 'monitor'
 
 module Legion

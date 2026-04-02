@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'legion/logging/helper'
+require 'legion/logging'
 require 'legion/rbac/version'
 require 'legion/rbac/settings'
 require 'legion/rbac/permission'

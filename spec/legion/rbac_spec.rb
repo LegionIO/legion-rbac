@@ -1,8 +1,38 @@
 # frozen_string_literal: true
 
+require 'open3'
+require 'rbconfig'
+
 RSpec.describe Legion::Rbac do
   it 'has a version number' do
     expect(Legion::Rbac::VERSION).not_to be_nil
+  end
+
+  it 'boots from the gem entrypoint without preloading legion/logging' do
+    root = File.expand_path('../..', __dir__)
+    script = <<~RUBY
+      require 'bundler/setup'
+      require 'legion/settings'
+      Legion::Settings.load
+      require 'legion/rbac'
+      Legion::Rbac.setup
+      puts 'rbac_boot_ok'
+    RUBY
+
+    stdout = nil
+    stderr = nil
+    status = nil
+
+    Bundler.with_unbundled_env do
+      stdout, stderr, status = Open3.capture3(
+        { 'BUNDLE_GEMFILE' => File.join(root, 'Gemfile') },
+        'bundle', 'exec', RbConfig.ruby, '-Ilib', '-e', script,
+        chdir: root
+      )
+    end
+
+    expect(status.success?).to be(true), "stdout:\n#{stdout}\n\nstderr:\n#{stderr}"
+    expect(stdout).to include('rbac_boot_ok')
   end
 
   describe '.register_routes' do

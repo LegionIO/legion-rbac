@@ -217,7 +217,14 @@ module Legion
         return {} unless overrides.is_a?(Hash)
 
         overrides.each_with_object({}) do |(pattern, permission), normalized|
-          normalized[pattern.to_s] = normalize_permission(permission)
+          pattern_str = pattern.to_s
+          parts = pattern_str.split(' ', 2)
+          unless parts.length == 2 && !parts[0].empty? && parts[1].start_with?('/')
+            log.warn("RBAC invalid route_permissions pattern=#{pattern_str.inspect} skipping")
+            next
+          end
+
+          normalized[pattern_str] = normalize_permission(permission)
         end
       end
 

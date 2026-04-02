@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'legion/logging'
+require 'legion/rbac/policy_engine'
 
 module Legion
   module Rbac

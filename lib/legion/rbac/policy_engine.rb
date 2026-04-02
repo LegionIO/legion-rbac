@@ -60,22 +60,29 @@ module Legion
       end
 
       def self.resolve_roles(principal, role_index)
-        direct_role_names = principal.roles.map(&:to_s)
-        assigned_role_names = Store.roles_for(
-          principal_id:   principal.id,
-          principal_type: principal.type.to_s
-        ).map(&:to_s)
-        role_names = case role_resolution_mode
+        mode = role_resolution_mode
+        direct_role_names = []
+        assigned_role_names = []
+
+        role_names = case mode
                      when 'assignments_only'
-                       assigned_role_names
+                       assigned_role_names = Store.roles_for(
+                         principal_id:   principal.id,
+                         principal_type: principal.type.to_s
+                       ).map(&:to_s)
                      when 'principal_only'
-                       direct_role_names
+                       direct_role_names = principal.roles.map(&:to_s)
                      else
+                       direct_role_names = principal.roles.map(&:to_s)
+                       assigned_role_names = Store.roles_for(
+                         principal_id:   principal.id,
+                         principal_type: principal.type.to_s
+                       ).map(&:to_s)
                        (direct_role_names + assigned_role_names).uniq
                      end
         roles = role_names.filter_map { |name| role_index[name.to_sym] }
         log.debug(
-          "RBAC resolve_roles principal=#{principal.id} mode=#{role_resolution_mode} " \
+          "RBAC resolve_roles principal=#{principal.id} mode=#{mode} " \
           "direct=#{direct_role_names.join(',')} assigned=#{assigned_role_names.join(',')} " \
           "roles=#{roles.map(&:name).join(',')}"
         )

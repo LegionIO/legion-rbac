@@ -227,9 +227,15 @@ module Legion
       end
 
       def normalize_permission(permission)
+        raise ArgumentError, 'Invalid rbac.route_permissions entry: permission must be a hash' unless permission.is_a?(Hash)
+
+        action = permission[:action] || permission['action']
+        raise ArgumentError, 'Invalid rbac.route_permissions entry: action is required' if action.nil?
+        raise ArgumentError, 'Invalid rbac.route_permissions entry: action must be a string or symbol' unless action.respond_to?(:to_sym)
+
         {
           resource: permission[:resource] || permission['resource'],
-          action:   (permission[:action] || permission['action']).to_sym
+          action:   action.to_sym
         }
       end
 

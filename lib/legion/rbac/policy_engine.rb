@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'legion/logging'
+require 'legion/rbac/store'
+require 'legion/rbac/team_scope'
 
 module Legion
   module Rbac

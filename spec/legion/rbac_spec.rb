@@ -58,6 +58,7 @@ RSpec.describe Legion::Rbac do
   it 'marks connected on setup' do
     described_class.setup
     expect(Legion::Settings[:rbac][:connected]).to be true
+    expect(described_class.role_index).not_to be_empty
   end
 
   it 'does not connect when rbac.enabled is false' do
@@ -66,7 +67,8 @@ RSpec.describe Legion::Rbac do
     described_class.setup
 
     expect(Legion::Settings[:rbac][:connected]).to be false
-    expect(described_class.role_index).to be_nil
+    expect(described_class.role_index).to eq({})
+    expect(described_class.role_index).to be_frozen
   ensure
     Legion::Settings[:rbac][:enabled] = true
   end
@@ -75,5 +77,14 @@ RSpec.describe Legion::Rbac do
     described_class.setup
     described_class.shutdown
     expect(Legion::Settings[:rbac][:connected]).to be false
+    expect(described_class.role_index).to eq({})
+    expect(described_class.role_index).to be_frozen
+  end
+
+  it 'returns a stable empty role_index before setup' do
+    described_class.shutdown
+
+    expect(described_class.role_index).to eq({})
+    expect(described_class.role_index).to be_frozen
   end
 end

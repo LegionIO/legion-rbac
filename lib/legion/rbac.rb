@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'legion/logging'
+require 'monitor'
 require 'legion/rbac/version'
 require 'legion/rbac/settings'
 require 'legion/rbac/permission'
@@ -19,6 +20,8 @@ require 'legion/rbac/capability_registry'
 
 module Legion
   module Rbac
+    EMPTY_ROLE_INDEX = {}.freeze
+
     class AccessDenied < StandardError
       attr_reader :result
 
@@ -34,9 +37,11 @@ module Legion
     end
 
     class << self
-      attr_reader :role_index
-
       include Legion::Logging::Helper
+
+      def role_index
+        role_index_lock.synchronize { @role_index || EMPTY_ROLE_INDEX }
+      end
 
       def register_routes
         return unless defined?(Legion::API) && Legion::API.respond_to?(:register_library_routes)
@@ -51,21 +56,19 @@ module Legion
         log.info 'Legion::Rbac setup started'
         Legion::Settings.merge_settings(:rbac, Legion::Rbac::Settings.default)
         unless enabled?
-          @role_index = nil
-          Legion::Settings[:rbac][:connected] = false
+          update_role_index(EMPTY_ROLE_INDEX, connected: false)
           log.info 'Legion::Rbac disabled via settings'
           return
         end
 
-        @role_index = ConfigLoader.load_roles
-        Legion::Settings[:rbac][:connected] = true
+        loaded_roles = ConfigLoader.load_roles.freeze
+        update_role_index(loaded_roles, connected: true)
         register_routes
-        log.info "Legion::Rbac connected roles=#{@role_index&.size || 0}"
+        log.info "Legion::Rbac connected roles=#{loaded_roles.size}"
       end
 
       def shutdown
-        @role_index = nil
-        Legion::Settings[:rbac][:connected] = false
+        update_role_index(EMPTY_ROLE_INDEX, connected: false)
         log.info 'Legion::Rbac shutdown complete'
       end
 
@@ -139,6 +142,17 @@ module Legion
       end
 
       private
+
+      def update_role_index(index, connected:)
+        role_index_lock.synchronize do
+          @role_index = index
+          Legion::Settings[:rbac][:connected] = connected
+        end
+      end
+
+      def role_index_lock
+        @role_index_lock ||= Monitor.new
+      end
 
       def build_runner_path(runner_class, function)
         class_name = runner_class.is_a?(String) ? runner_class : runner_class.name

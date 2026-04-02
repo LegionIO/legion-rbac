@@ -12,6 +12,7 @@
 - Expanded middleware route coverage to include `/api/rbac/*`, honored `rbac.route_permissions` overrides, and compiled route matchers once per permission table.
 - Wired static and DB-backed role assignments into policy evaluation, enforced `target_team` scope in the core evaluator, and made execution authorization intersect role policy with runner grants and cross-team grants.
 - Hardened the smaller runtime edges: static assignment lookups now respect `principal_type`, capability registry reads return copies instead of live internals, capability denials render useful messages, resource regexes compile once, and RBAC collection routes use bounded `limit`/`offset` windows.
+- Synchronized RBAC role index lifecycle state so setup/shutdown expose a stable frozen empty index instead of `nil`, avoiding transitional reads during authorization and route access.
 
 ## [0.2.9] - 2026-03-31
 

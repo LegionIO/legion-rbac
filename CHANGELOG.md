@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0] - 2026-04-02
+
+### Changed
+- Uplifted non-Sinatra RBAC library code to `Legion::Logging::Helper` with structured `log.*` usage instead of direct `Legion::Logging.*` calls.
+- Added structured exception handling via `handle_exception` across the RBAC library surface and expanded operational `info`/`debug` logging for setup, authorization, store access, claims mapping, middleware, and capability audit flows.
+- Promoted `legion-logging >= 1.4.3` to a runtime gem dependency and added coverage for the new logging rescue paths.
+
 ## [0.2.9] - 2026-03-31
 
 ### Added

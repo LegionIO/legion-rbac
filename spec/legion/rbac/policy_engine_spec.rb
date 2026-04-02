@@ -7,6 +7,16 @@ RSpec.describe Legion::Rbac::PolicyEngine do
     Legion::Rbac::Principal.new(id: 'test', roles: roles, team: team)
   end
 
+  around do |example|
+    original_assignments = Legion::Settings[:rbac][:static_assignments]
+    original_role_resolution_mode = Legion::Settings[:rbac][:role_resolution_mode]
+    Legion::Settings[:rbac][:static_assignments] = []
+    example.run
+  ensure
+    Legion::Settings[:rbac][:static_assignments] = original_assignments
+    Legion::Settings[:rbac][:role_resolution_mode] = original_role_resolution_mode
+  end
+
   describe '.evaluate' do
     context 'admin role' do
       it 'allows access to any resource' do
@@ -67,6 +77,25 @@ RSpec.describe Legion::Rbac::PolicyEngine do
         )
         expect(result[:allowed]).to be false
       end
+
+      it 'allows same-team access when target_team matches principal team' do
+        result = described_class.evaluate(
+          principal: principal_with(roles: ['supervisor'], team: 'alpha'),
+          action: :lifecycle, resource: 'workers/team',
+          role_index: role_index, target_team: 'alpha'
+        )
+        expect(result[:allowed]).to be true
+      end
+
+      it 'denies cross-team access when target_team differs' do
+        result = described_class.evaluate(
+          principal: principal_with(roles: ['supervisor'], team: 'alpha'),
+          action: :lifecycle, resource: 'workers/team',
+          role_index: role_index, target_team: 'beta'
+        )
+        expect(result[:allowed]).to be false
+        expect(result[:reason]).to eq('outside team scope')
+      end
     end
 
     context 'governance-observer role' do
@@ -110,6 +139,50 @@ RSpec.describe Legion::Rbac::PolicyEngine do
       end
     end
 
+    context 'assigned roles' do
+      it 'resolves static assignments when the principal carries no roles' do
+        Legion::Settings[:rbac][:static_assignments] = [
+          { principal_id: 'assigned-admin', principal_type: 'human', role: 'admin' }
+        ]
+
+        result = described_class.evaluate(
+          principal: Legion::Rbac::Principal.new(id: 'assigned-admin', roles: [], team: 'alpha'),
+          action: :read, resource: 'tasks/123',
+          role_index: role_index, target_team: 'beta'
+        )
+
+        expect(result[:allowed]).to be true
+      end
+
+      it 'can ignore principal roles when role_resolution_mode is assignments_only' do
+        Legion::Settings[:rbac][:role_resolution_mode] = 'assignments_only'
+
+        result = described_class.evaluate(
+          principal: principal_with(roles: ['admin']),
+          action: :manage, resource: 'anything/at/all',
+          role_index: role_index
+        )
+
+        expect(result[:allowed]).to be false
+        expect(result[:reason]).to eq('no roles assigned')
+      end
+
+      it 'can use only principal roles when role_resolution_mode is principal_only' do
+        Legion::Settings[:rbac][:role_resolution_mode] = 'principal_only'
+        Legion::Settings[:rbac][:static_assignments] = [
+          { principal_id: 'test', principal_type: 'human', role: 'worker' }
+        ]
+
+        result = described_class.evaluate(
+          principal: principal_with(roles: ['admin']),
+          action: :manage, resource: 'anything/at/all',
+          role_index: role_index
+        )
+
+        expect(result[:allowed]).to be true
+      end
+    end
+
     context 'enforce: false' do
       it 'returns allowed: true with would_deny: true' do
         result = described_class.evaluate(
@@ -121,6 +194,23 @@ RSpec.describe Legion::Rbac::PolicyEngine do
         expect(result[:would_deny]).to be true
       end
     end
+
+    context 'when rbac is disabled' do
+      it 'does not enforce denials' do
+        Legion::Settings[:rbac][:enabled] = false
+
+        result = described_class.evaluate(
+          principal: principal_with(roles: []),
+          action: :read, resource: 'tasks/123',
+          role_index: role_index
+        )
+
+        expect(result[:allowed]).to be true
+        expect(result[:would_deny]).to be true
+      ensure
+        Legion::Settings[:rbac][:enabled] = true
+      end
+    end
   end
 end
 
@@ -129,6 +219,14 @@ RSpec.describe Legion::Rbac do
 
   before do
     Legion::Rbac.setup
+  end
+
+  around do |example|
+    original_assignments = Legion::Settings[:rbac][:static_assignments]
+    Legion::Settings[:rbac][:static_assignments] = []
+    example.run
+  ensure
+    Legion::Settings[:rbac][:static_assignments] = original_assignments
   end
 
   describe '.authorize!' do
@@ -162,6 +260,79 @@ RSpec.describe Legion::Rbac do
           principal: principal, runner_class: 'Legion::Extensions::LexExtinction::Terminate', function: 'execute'
         )
       end.to raise_error(Legion::Rbac::AccessDenied)
+    end
+
+    it 'enforces runner grants for same-team execution when db grants are available' do
+      principal = Legion::Rbac::Principal.new(id: 'worker-1', roles: ['worker'], team: 'alpha')
+      grant = instance_double('RbacRunnerGrant', runner_pattern: 'lex-github/*', actions_list: ['execute'])
+
+      allow(Legion::Rbac::Store).to receive(:roles_for).and_return([])
+      allow(Legion::Rbac::Store).to receive(:db_available?).and_return(true)
+      allow(Legion::Rbac::Store).to receive(:runner_grants_for).with(team: 'alpha').and_return([grant])
+
+      result = described_class.authorize_execution!(
+        principal: principal, runner_class: 'Legion::Extensions::LexGithub::PullRequests', function: 'create'
+      )
+
+      expect(result[:allowed]).to be true
+    end
+
+    it 'denies same-team execution when the runner grant is missing' do
+      principal = Legion::Rbac::Principal.new(id: 'worker-1', roles: ['worker'], team: 'alpha')
+
+      allow(Legion::Rbac::Store).to receive(:roles_for).and_return([])
+      allow(Legion::Rbac::Store).to receive(:db_available?).and_return(true)
+      allow(Legion::Rbac::Store).to receive(:runner_grants_for).with(team: 'alpha').and_return([])
+
+      expect do
+        described_class.authorize_execution!(
+          principal: principal, runner_class: 'Legion::Extensions::LexGithub::PullRequests', function: 'create'
+        )
+      end.to raise_error(Legion::Rbac::AccessDenied, /runner grant required/)
+    end
+
+    it 'allows cross-team execution when runner and cross-team grants both match' do
+      principal = Legion::Rbac::Principal.new(id: 'worker-1', roles: ['worker'], team: 'alpha')
+      runner_grant = instance_double('RbacRunnerGrant', runner_pattern: 'lex-github/*', actions_list: ['execute'])
+      cross_team_grant = instance_double(
+        'RbacCrossTeamGrant',
+        target_team:    'beta',
+        runner_pattern: 'lex-github/*',
+        actions_list:   ['execute']
+      )
+
+      allow(Legion::Rbac::Store).to receive(:roles_for).and_return([])
+      allow(Legion::Rbac::Store).to receive(:db_available?).and_return(true)
+      allow(Legion::Rbac::Store).to receive(:runner_grants_for).with(team: 'alpha').and_return([runner_grant])
+      allow(Legion::Rbac::Store).to receive(:cross_team_grants_for).with(source_team: 'alpha').and_return([cross_team_grant])
+
+      result = described_class.authorize_execution!(
+        principal:    principal,
+        runner_class: 'Legion::Extensions::LexGithub::PullRequests',
+        function:     'create',
+        target_team:  'beta'
+      )
+
+      expect(result[:allowed]).to be true
+    end
+
+    it 'denies cross-team execution when the cross-team grant is missing' do
+      principal = Legion::Rbac::Principal.new(id: 'worker-1', roles: ['worker'], team: 'alpha')
+      runner_grant = instance_double('RbacRunnerGrant', runner_pattern: 'lex-github/*', actions_list: ['execute'])
+
+      allow(Legion::Rbac::Store).to receive(:roles_for).and_return([])
+      allow(Legion::Rbac::Store).to receive(:db_available?).and_return(true)
+      allow(Legion::Rbac::Store).to receive(:runner_grants_for).with(team: 'alpha').and_return([runner_grant])
+      allow(Legion::Rbac::Store).to receive(:cross_team_grants_for).with(source_team: 'alpha').and_return([])
+
+      expect do
+        described_class.authorize_execution!(
+          principal:    principal,
+          runner_class: 'Legion::Extensions::LexGithub::PullRequests',
+          function:     'create',
+          target_team:  'beta'
+        )
+      end.to raise_error(Legion::Rbac::AccessDenied, /cross-team grant required/)
     end
   end
 end

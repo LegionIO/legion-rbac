@@ -34,6 +34,17 @@ RSpec.describe Legion::Rbac::Store do
         roles = described_class.roles_for(principal_id: 'user-1')
         expect(roles).to contain_exactly('admin', 'supervisor')
       end
+
+      it 'filters static assignments by principal_type' do
+        Legion::Settings[:rbac][:static_assignments] = [
+          { principal_id: 'shared', principal_type: 'human', role: 'admin' },
+          { principal_id: 'shared', principal_type: 'worker', role: 'worker' }
+        ]
+
+        roles = described_class.roles_for(principal_id: 'shared', principal_type: 'human')
+
+        expect(roles).to eq(['admin'])
+      end
     end
   end
 

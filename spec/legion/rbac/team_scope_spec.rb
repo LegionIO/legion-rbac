@@ -7,6 +7,16 @@ RSpec.describe Legion::Rbac::TeamScope do
     Legion::Rbac::Principal.new(id: 'test', roles: roles, team: team)
   end
 
+  around do |example|
+    original_assignments = Legion::Settings[:rbac][:static_assignments]
+    original_role_resolution_mode = Legion::Settings[:rbac][:role_resolution_mode]
+    Legion::Settings[:rbac][:static_assignments] = []
+    example.run
+  ensure
+    Legion::Settings[:rbac][:static_assignments] = original_assignments
+    Legion::Settings[:rbac][:role_resolution_mode] = original_role_resolution_mode
+  end
+
   describe '.allowed?' do
     it 'allows same team access' do
       p = principal_with(roles: ['worker'], team: 'alpha')
@@ -46,6 +56,13 @@ RSpec.describe Legion::Rbac::TeamScope do
     it 'allows when both teams are nil' do
       p = principal_with(roles: ['worker'], team: nil)
       expect(described_class.allowed?(principal: p, target_team: nil, role_index: role_index)).to be true
+    end
+
+    it 'respects assignments_only role resolution when resolving direct team-scope checks' do
+      Legion::Settings[:rbac][:role_resolution_mode] = 'assignments_only'
+      p = principal_with(roles: ['admin'], team: 'alpha')
+
+      expect(described_class.allowed?(principal: p, target_team: 'beta', role_index: role_index)).to be false
     end
   end
 end

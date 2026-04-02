@@ -1,17 +1,24 @@
 # frozen_string_literal: true
 
+require 'legion/logging'
+
 module Legion
   module Rbac
     class Permission
+      include Legion::Logging::Helper
+
       attr_reader :resource_pattern, :actions
 
       def initialize(resource_pattern:, actions:)
         @resource_pattern = resource_pattern
         @actions = actions.map(&:to_s)
+        @resource_regex = self.class.send(:pattern_to_regex, resource_pattern)
       end
 
       def matches?(resource, action)
-        pattern_matches?(resource) && action_matches?(action)
+        matched = pattern_matches?(resource) && action_matches?(action)
+        log.debug("RBAC permission matched pattern=#{resource_pattern} action=#{action} resource=#{resource}") if matched
+        matched
       end
 
       private
@@ -21,11 +28,10 @@ module Legion
       end
 
       def pattern_matches?(resource)
-        regex = pattern_to_regex(resource_pattern)
-        resource.match?(regex)
+        resource.match?(@resource_regex)
       end
 
-      def pattern_to_regex(pattern)
+      def self.pattern_to_regex(pattern)
         parts = pattern.split('/').map do |segment|
           case segment
           when '*'  then '.*'
@@ -35,34 +41,43 @@ module Legion
         end
         Regexp.new("\\A#{parts.join('/')}\\z")
       end
+      private_class_method :pattern_to_regex
     end
 
     class DenyRule
+      include Legion::Logging::Helper
+
       attr_reader :resource_pattern, :above_level
 
       def initialize(resource_pattern:, above_level: nil)
         @resource_pattern = resource_pattern
         @above_level = above_level
+        @resource_regex = self.class.send(:pattern_to_regex, resource_pattern)
       end
 
       def matches?(resource, **opts)
         return false unless pattern_matches?(resource)
-        return true if above_level.nil?
+
+        if above_level.nil?
+          log.debug("RBAC deny rule matched pattern=#{resource_pattern} resource=#{resource}")
+          return true
+        end
 
         level = opts[:level]
         return false if level.nil?
 
-        level > above_level
+        matched = level > above_level
+        log.debug("RBAC deny rule matched pattern=#{resource_pattern} resource=#{resource} level=#{level} above_level=#{above_level}") if matched
+        matched
       end
 
       private
 
       def pattern_matches?(resource)
-        regex = pattern_to_regex(resource_pattern)
-        resource.match?(regex)
+        resource.match?(@resource_regex)
       end
 
-      def pattern_to_regex(pattern)
+      def self.pattern_to_regex(pattern)
         parts = pattern.split('/').map do |segment|
           case segment
           when '*'  then '.*'
@@ -72,6 +87,7 @@ module Legion
         end
         Regexp.new("\\A#{parts.join('/')}\\z")
       end
+      private_class_method :pattern_to_regex
     end
   end
 end

@@ -81,5 +81,24 @@ RSpec.describe Legion::Rbac::EntraClaimsMapper do
       result = described_class.map_claims(claims)
       expect(result[:name]).to eq('jane@uhg.com')
     end
+
+    it 'prefers explicit team keys over tid' do
+      claims = base_claims.merge(extension_legion_team: 'platform-ops')
+      result = described_class.map_claims(claims)
+
+      expect(result[:team]).to eq('platform-ops')
+    end
+
+    it 'maps raw team values when team_map is provided' do
+      result = described_class.map_claims(base_claims, team_map: { 'tenant-456' => 'platform-core' })
+
+      expect(result[:team]).to eq('platform-core')
+    end
+
+    it 'fails closed for unmapped team values when team_map is provided' do
+      result = described_class.map_claims(base_claims, team_map: { 'different-tenant' => 'platform-core' })
+
+      expect(result[:team]).to be_nil
+    end
   end
 end

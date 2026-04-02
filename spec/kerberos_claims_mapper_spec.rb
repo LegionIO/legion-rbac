@@ -94,6 +94,32 @@ RSpec.describe Legion::Rbac::KerberosClaimsMapper do
       result = described_class.map(principal: 'miverso2', groups: [], role_map: role_map)
       expect(result[:sub]).to eq('miverso2')
     end
+
+    it 'derives team from configured profile keys' do
+      result = described_class.map(
+        principal:  'miverso2@MS.DS.UHC.COM',
+        groups:     [],
+        role_map:   role_map,
+        team_keys:  [:department],
+        team_map:   { 'Platform Engineering' => 'platform-core' },
+        department: 'Platform Engineering'
+      )
+
+      expect(result[:team]).to eq('platform-core')
+      expect(result[:department]).to eq('Platform Engineering')
+    end
+
+    it 'fails closed for unmapped team values when team_map is provided' do
+      result = described_class.map(
+        principal: 'miverso2@MS.DS.UHC.COM',
+        groups:    [],
+        role_map:  role_map,
+        team_map:  { 'other-team' => 'platform-core' },
+        team:      'legacy-team'
+      )
+
+      expect(result[:team]).to be_nil
+    end
   end
 
   describe '.map_with_fallback' do
@@ -141,6 +167,27 @@ RSpec.describe Legion::Rbac::KerberosClaimsMapper do
           expect(result[:roles]).to eq(['supervisor'])
           expect(result[:auth_method]).to eq('kerberos')
         end
+
+        it 'passes default_role and profile through the Entra fallback' do
+          described_class.map_with_fallback(
+            principal:    'miverso2@MS.DS.UHC.COM',
+            groups:       nil,
+            fallback:     :entra,
+            role_map:     role_map,
+            default_role: 'governance-observer',
+            team_keys:    [:department],
+            team_map:     { 'Platform Engineering' => 'platform-core' },
+            title:        'Engineer'
+          )
+
+          expect(Legion::Rbac::EntraClaimsMapper).to have_received(:map_claims).with(
+            hash_including(sub: 'miverso2@MS.DS.UHC.COM', preferred_username: 'miverso2@MS.DS.UHC.COM', title: 'Engineer'),
+            role_map:     role_map,
+            default_role: 'governance-observer',
+            team_keys:    [:department],
+            team_map:     { 'Platform Engineering' => 'platform-core' }
+          )
+        end
       end
 
       context 'when EntraClaimsMapper returns nil' do
@@ -157,6 +204,20 @@ RSpec.describe Legion::Rbac::KerberosClaimsMapper do
             role_map:  role_map
           )
           expect(result[:roles]).to eq(['worker'])
+        end
+
+        it 'preserves default_role and profile when Entra returns nil' do
+          result = described_class.map_with_fallback(
+            principal:    'miverso2@MS.DS.UHC.COM',
+            groups:       nil,
+            fallback:     :entra,
+            role_map:     role_map,
+            default_role: 'observer',
+            title:        'Engineer'
+          )
+
+          expect(result[:roles]).to eq(['observer'])
+          expect(result[:title]).to eq('Engineer')
         end
       end
     end

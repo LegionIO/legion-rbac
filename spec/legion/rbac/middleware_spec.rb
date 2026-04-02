@@ -23,6 +23,10 @@ RSpec.describe Legion::Rbac::Middleware do
     Legion::Rbac::Principal.new(id: 'worker-1', roles: ['worker'])
   end
 
+  def supervisor_principal(team: 'team-a')
+    Legion::Rbac::Principal.new(id: 'supervisor-1', roles: ['supervisor'], team: team)
+  end
+
   describe 'skip paths' do
     it 'passes /api/health through without auth' do
       status, = middleware.call(env_for('GET', '/api/health'))
@@ -60,6 +64,11 @@ RSpec.describe Legion::Rbac::Middleware do
       expect(status).to eq(200)
     end
 
+    it 'allows admin to access rbac routes' do
+      status, = middleware.call(env_for('GET', '/api/rbac/roles', principal: admin_principal))
+      expect(status).to eq(200)
+    end
+
     it 'allows worker to read tasks' do
       status, = middleware.call(env_for('GET', '/api/tasks', principal: worker_principal))
       expect(status).to eq(200)
@@ -67,6 +76,27 @@ RSpec.describe Legion::Rbac::Middleware do
 
     it 'denies worker from managing settings' do
       status, = middleware.call(env_for('PUT', '/api/settings/rbac', principal: worker_principal))
+      expect(status).to eq(403)
+    end
+
+    it 'honors permission overrides from the rack env' do
+      status, = middleware.call(
+        env_for('GET', '/api/tasks', principal: worker_principal).merge(
+          'legion.rbac.resource' => 'settings/*',
+          'legion.rbac.action'   => 'manage'
+        )
+      )
+
+      expect(status).to eq(403)
+    end
+
+    it 'enforces team scope when target_team is supplied in the rack env' do
+      status, = middleware.call(
+        env_for('PATCH', '/api/workers/worker-2', principal: supervisor_principal(team: 'team-a')).merge(
+          'legion.rbac.target_team' => 'team-b'
+        )
+      )
+
       expect(status).to eq(403)
     end
 
@@ -79,6 +109,86 @@ RSpec.describe Legion::Rbac::Middleware do
       _, _, body = middleware.call(env_for('GET', '/api/unknown', principal: admin_principal))
       parsed = Legion::JSON.load(body.first)
       expect(parsed[:error] || parsed['error']).to eq('access_denied')
+    end
+  end
+
+  describe 'route permission overrides' do
+    it 'allows custom routes from settings' do
+      Legion::Settings[:rbac][:route_permissions] = {
+        'GET /api/custom/tasks' => { resource: 'tasks/*', action: :read }
+      }
+
+      status, = middleware.call(env_for('GET', '/api/custom/tasks', principal: worker_principal))
+
+      expect(status).to eq(200)
+    ensure
+      Legion::Settings[:rbac][:route_permissions] = {}
+    end
+
+    it 'overrides default route permissions from settings' do
+      Legion::Settings[:rbac][:route_permissions] = {
+        'GET /api/tasks' => { resource: 'settings/*', action: :manage }
+      }
+
+      status, = middleware.call(env_for('GET', '/api/tasks', principal: worker_principal))
+
+      expect(status).to eq(403)
+    ensure
+      Legion::Settings[:rbac][:route_permissions] = {}
+    end
+
+    it 'raises ArgumentError when permission entry is not a hash' do
+      overrides = { 'GET /api/bad' => 'not-a-hash' }
+      expect do
+        middleware.send(:build_custom_route_permissions, overrides)
+      end.to raise_error(ArgumentError, /permission must be a hash/)
+    end
+
+    it 'raises ArgumentError when resource is missing from permission entry' do
+      overrides = { 'GET /api/bad' => { action: :read } }
+      expect do
+        middleware.send(:build_custom_route_permissions, overrides)
+      end.to raise_error(ArgumentError, /resource is required/)
+    end
+
+    it 'raises ArgumentError when resource is not a string' do
+      overrides = { 'GET /api/bad' => { resource: 123, action: :read } }
+      expect do
+        middleware.send(:build_custom_route_permissions, overrides)
+      end.to raise_error(ArgumentError, /resource must be a string/)
+    end
+
+    it 'raises ArgumentError when action is missing from permission entry' do
+      overrides = { 'GET /api/bad' => { resource: 'tasks/*' } }
+      expect do
+        middleware.send(:build_custom_route_permissions, overrides)
+      end.to raise_error(ArgumentError, /action is required/)
+    end
+  end
+
+  describe 'disabled mode' do
+    it 'bypasses enforcement when rbac.enabled is false' do
+      Legion::Settings[:rbac][:enabled] = false
+
+      status, = middleware.call(env_for('GET', '/api/tasks'))
+
+      expect(status).to eq(200)
+    ensure
+      Legion::Settings[:rbac][:enabled] = true
+    end
+  end
+
+  describe '#enforce?' do
+    it 'logs and defaults to true when settings lookup fails' do
+      allow(Legion::Settings).to receive(:[]).with(:rbac).and_raise(StandardError, 'settings boom')
+      allow(middleware).to receive(:handle_exception)
+
+      expect(middleware.send(:enforce?)).to be true
+      expect(middleware).to have_received(:handle_exception).with(
+        instance_of(StandardError),
+        level:     :warn,
+        operation: 'rbac.middleware.enforce'
+      )
     end
   end
 end

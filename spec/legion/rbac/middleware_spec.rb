@@ -81,4 +81,18 @@ RSpec.describe Legion::Rbac::Middleware do
       expect(parsed[:error] || parsed['error']).to eq('access_denied')
     end
   end
+
+  describe '#enforce?' do
+    it 'logs and defaults to true when settings lookup fails' do
+      allow(Legion::Settings).to receive(:[]).with(:rbac).and_raise(StandardError, 'settings boom')
+      allow(middleware).to receive(:handle_exception)
+
+      expect(middleware.send(:enforce?)).to be true
+      expect(middleware).to have_received(:handle_exception).with(
+        instance_of(StandardError),
+        level:     :warn,
+        operation: 'rbac.middleware.enforce'
+      )
+    end
+  end
 end

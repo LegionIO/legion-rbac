@@ -78,6 +78,15 @@ module Legion
         Legion::Settings[:rbac]&.fetch(:enabled, true) != false
       end
 
+      def events_enabled?
+        return false unless defined?(Legion::Events)
+        return false unless defined?(Legion::Settings)
+
+        Legion::Settings[:rbac]&.fetch(:emit_events, true) != false
+      rescue StandardError
+        false
+      end
+
       def authorize!(principal:, action:, resource:, **)
         result = PolicyEngine.evaluate(principal: principal, action: action, resource: resource, **)
         log.info("RBAC authorize principal=#{principal.id} action=#{action} resource=#{resource} allowed=#{result[:allowed]}")

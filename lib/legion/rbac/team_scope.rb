@@ -23,7 +23,7 @@ module Legion
 
         resolved_roles ||= begin
           role_index ||= Legion::Rbac.role_index || {}
-          principal.roles.filter_map { |name| role_index[name.to_sym] }
+          PolicyEngine.resolve_roles(principal, role_index)
         end
         allowed = resolved_roles.any?(&:cross_team?)
         log.info(

@@ -9,10 +9,12 @@ RSpec.describe Legion::Rbac::PolicyEngine do
 
   around do |example|
     original_assignments = Legion::Settings[:rbac][:static_assignments]
+    original_role_resolution_mode = Legion::Settings[:rbac][:role_resolution_mode]
     Legion::Settings[:rbac][:static_assignments] = []
     example.run
   ensure
     Legion::Settings[:rbac][:static_assignments] = original_assignments
+    Legion::Settings[:rbac][:role_resolution_mode] = original_role_resolution_mode
   end
 
   describe '.evaluate' do
@@ -147,6 +149,34 @@ RSpec.describe Legion::Rbac::PolicyEngine do
           principal: Legion::Rbac::Principal.new(id: 'assigned-admin', roles: [], team: 'alpha'),
           action: :read, resource: 'tasks/123',
           role_index: role_index, target_team: 'beta'
+        )
+
+        expect(result[:allowed]).to be true
+      end
+
+      it 'can ignore principal roles when role_resolution_mode is assignments_only' do
+        Legion::Settings[:rbac][:role_resolution_mode] = 'assignments_only'
+
+        result = described_class.evaluate(
+          principal: principal_with(roles: ['admin']),
+          action: :manage, resource: 'anything/at/all',
+          role_index: role_index
+        )
+
+        expect(result[:allowed]).to be false
+        expect(result[:reason]).to eq('no roles assigned')
+      end
+
+      it 'can use only principal roles when role_resolution_mode is principal_only' do
+        Legion::Settings[:rbac][:role_resolution_mode] = 'principal_only'
+        Legion::Settings[:rbac][:static_assignments] = [
+          { principal_id: 'test', principal_type: 'human', role: 'worker' }
+        ]
+
+        result = described_class.evaluate(
+          principal: principal_with(roles: ['admin']),
+          action: :manage, resource: 'anything/at/all',
+          role_index: role_index
         )
 
         expect(result[:allowed]).to be true

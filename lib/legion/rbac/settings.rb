@@ -10,15 +10,17 @@ module Legion
       def self.default
         log.debug('RBAC default settings requested')
         {
-          enabled:            true,
-          enforce:            true,
-          connected:          false,
-          default_local_role: 'admin',
-          static_assignments: [],
-          route_permissions:  {},
-          roles:              default_roles,
-          entra:              entra_defaults,
-          capability_audit:   capability_audit_defaults
+          enabled:              true,
+          enforce:              true,
+          connected:            false,
+          emit_events:          true,
+          role_resolution_mode: 'merge',
+          default_local_role:   'admin',
+          static_assignments:   [],
+          route_permissions:    {},
+          roles:                default_roles,
+          entra:                entra_defaults,
+          capability_audit:     capability_audit_defaults
         }
       end
 

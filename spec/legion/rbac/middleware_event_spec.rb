@@ -26,17 +26,36 @@ RSpec.describe Legion::Rbac::Middleware do
     Legion::Rbac::Principal.new(id: 'worker-1', roles: ['worker'])
   end
 
-  describe 'rbac.deny event emission' do
-    it 'emits rbac.deny event when access is denied' do
+  describe 'rbac decision event emission' do
+    it 'emits rbac.denied when access is denied' do
       allow(Legion::Events).to receive(:emit)
       middleware.call(env_for('PUT', '/api/settings/rbac', principal: worker_principal))
-      expect(Legion::Events).to have_received(:emit).with('rbac.deny', hash_including(:reason))
+
+      expect(Legion::Events).to have_received(:emit).with(
+        'rbac.denied',
+        hash_including(
+          principal_id: 'worker-1',
+          action:       'manage',
+          resource:     'settings/*',
+          operation:    'rbac.policy_engine.evaluate',
+          reason:       'no matching permission'
+        )
+      )
     end
 
-    it 'does not emit rbac.deny when access is allowed' do
+    it 'emits rbac.granted when access is allowed' do
       allow(Legion::Events).to receive(:emit)
       middleware.call(env_for('GET', '/api/tasks', principal: worker_principal))
-      expect(Legion::Events).not_to have_received(:emit).with('rbac.deny', anything)
+
+      expect(Legion::Events).to have_received(:emit).with(
+        'rbac.granted',
+        hash_including(
+          principal_id: 'worker-1',
+          action:       'read',
+          resource:     'tasks/*',
+          operation:    'rbac.policy_engine.evaluate'
+        )
+      )
     end
   end
 end

@@ -138,27 +138,31 @@ RSpec.describe Legion::Rbac::Middleware do
     end
 
     it 'raises ArgumentError when permission entry is not a hash' do
-      Legion::Settings[:rbac][:route_permissions] = {
-        'GET /api/bad' => 'not-a-hash'
-      }
-
+      overrides = { 'GET /api/bad' => 'not-a-hash' }
       expect do
-        middleware.send(:custom_route_permissions)
+        middleware.send(:build_custom_route_permissions, overrides)
       end.to raise_error(ArgumentError, /permission must be a hash/)
-    ensure
-      Legion::Settings[:rbac][:route_permissions] = {}
+    end
+
+    it 'raises ArgumentError when resource is missing from permission entry' do
+      overrides = { 'GET /api/bad' => { action: :read } }
+      expect do
+        middleware.send(:build_custom_route_permissions, overrides)
+      end.to raise_error(ArgumentError, /resource is required/)
+    end
+
+    it 'raises ArgumentError when resource is not a string' do
+      overrides = { 'GET /api/bad' => { resource: 123, action: :read } }
+      expect do
+        middleware.send(:build_custom_route_permissions, overrides)
+      end.to raise_error(ArgumentError, /resource must be a string/)
     end
 
     it 'raises ArgumentError when action is missing from permission entry' do
-      Legion::Settings[:rbac][:route_permissions] = {
-        'GET /api/bad' => { resource: 'tasks/*' }
-      }
-
+      overrides = { 'GET /api/bad' => { resource: 'tasks/*' } }
       expect do
-        middleware.send(:custom_route_permissions)
+        middleware.send(:build_custom_route_permissions, overrides)
       end.to raise_error(ArgumentError, /action is required/)
-    ensure
-      Legion::Settings[:rbac][:route_permissions] = {}
     end
   end
 

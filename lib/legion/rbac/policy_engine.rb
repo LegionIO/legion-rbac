@@ -27,7 +27,7 @@ module Legion
           }
         )
 
-        log.info(
+        log.debug(
           "RBAC evaluate principal=#{principal.id} action=#{action} resource=#{resource} " \
           "target_team=#{target_team || 'none'} allowed=#{result[:allowed]} " \
           "enforce=#{enforce} reason=#{result[:reason] || 'none'}"

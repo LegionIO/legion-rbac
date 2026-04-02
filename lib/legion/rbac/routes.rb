@@ -316,7 +316,9 @@ module Legion
         private
 
         def parse_optional_time(value, field:)
-          return nil if value.nil? || value.empty?
+          return nil if value.nil?
+          raise InvalidTimestamp, "#{field} must be a valid ISO8601 timestamp" unless value.is_a?(String)
+          return nil if value.empty?
 
           Time.iso8601(value)
         rescue ArgumentError
@@ -376,7 +378,7 @@ module Legion
         end
 
         def emit_policy_changed(change_type:, target_type:, record_values:, context:)
-          return unless defined?(Legion::Events)
+          return unless defined?(Legion::Events) && Legion::Rbac.events_enabled?
 
           Legion::Events.emit(
             'rbac.policy_changed',

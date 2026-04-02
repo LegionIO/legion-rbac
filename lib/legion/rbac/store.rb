@@ -23,7 +23,7 @@ module Legion
                   else
                     static_roles_for(principal_id, principal_type)
                   end
-          log.info(
+          log.debug(
             "RBAC roles_for principal_id=#{principal_id} principal_type=#{principal_type || 'any'} " \
             "source=#{source} count=#{roles.size}"
           )

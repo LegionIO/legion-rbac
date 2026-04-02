@@ -189,10 +189,10 @@ module Legion
       end
 
       def compiled_route_permissions
-        routes = route_permissions
-        cache_key = routes.hash
-        return @compiled_route_permissions if @compiled_route_permissions_key == cache_key
+        raw = Legion::Settings[:rbac]&.dig(:route_permissions)
+        return @compiled_route_permissions if @compiled_route_permissions_settings_id == raw.object_id
 
+        routes = DEFAULT_ROUTE_PERMISSIONS.merge(build_custom_route_permissions(raw))
         @compiled_route_permissions = routes.map do |pattern, permission|
           http_method, path_pattern = pattern.split(' ', 2)
           entry = {
@@ -209,16 +209,11 @@ module Legion
 
           entry
         end.freeze
-        @compiled_route_permissions_key = cache_key
+        @compiled_route_permissions_settings_id = raw.object_id
         @compiled_route_permissions
       end
 
-      def route_permissions
-        DEFAULT_ROUTE_PERMISSIONS.merge(custom_route_permissions)
-      end
-
-      def custom_route_permissions
-        overrides = Legion::Settings[:rbac]&.dig(:route_permissions)
+      def build_custom_route_permissions(overrides)
         return {} unless overrides.is_a?(Hash)
 
         overrides.each_with_object({}) do |(pattern, permission), normalized|
@@ -229,12 +224,16 @@ module Legion
       def normalize_permission(permission)
         raise ArgumentError, 'Invalid rbac.route_permissions entry: permission must be a hash' unless permission.is_a?(Hash)
 
+        resource = permission[:resource] || permission['resource']
+        raise ArgumentError, 'Invalid rbac.route_permissions entry: resource is required' if resource.nil?
+        raise ArgumentError, 'Invalid rbac.route_permissions entry: resource must be a string' unless resource.is_a?(String)
+
         action = permission[:action] || permission['action']
         raise ArgumentError, 'Invalid rbac.route_permissions entry: action is required' if action.nil?
         raise ArgumentError, 'Invalid rbac.route_permissions entry: action must be a string or symbol' unless action.respond_to?(:to_sym)
 
         {
-          resource: permission[:resource] || permission['resource'],
+          resource: resource,
           action:   action.to_sym
         }
       end

@@ -5,7 +5,7 @@
 ### Changed
 - Uplifted non-Sinatra RBAC library code to `Legion::Logging::Helper` with structured `log.*` usage instead of direct `Legion::Logging.*` calls.
 - Added structured exception handling via `handle_exception` across the RBAC library surface and expanded operational `info`/`debug` logging for setup, authorization, store access, claims mapping, middleware, and capability audit flows.
-- Promoted `legion-logging >= 1.4.3` to a runtime gem dependency and added coverage for the new logging rescue paths.
+- Promoted `legion-logging >= 1.5.0` to a runtime gem dependency and added coverage for the new logging rescue paths.
 - Explicitly load full `legion/logging` from RBAC library files so `require 'legion/rbac'` boots cleanly without preloading logging elsewhere.
 - Exposed `KerberosClaimsMapper` from the gem entrypoint and preserved caller-supplied fallback defaults/profile attributes when Kerberos fallback delegates to Entra.
 - Made `rbac.enabled` disable RBAC setup/enforcement paths consistently and normalized malformed `expires_at` inputs into validation errors with explicit time parsing.

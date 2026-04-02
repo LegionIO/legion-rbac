@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Rbac
     class Permission
+      include Legion::Logging::Helper
+
       attr_reader :resource_pattern, :actions
 
       def initialize(resource_pattern:, actions:)
@@ -11,7 +15,9 @@ module Legion
       end
 
       def matches?(resource, action)
-        pattern_matches?(resource) && action_matches?(action)
+        matched = pattern_matches?(resource) && action_matches?(action)
+        log.debug("RBAC permission matched pattern=#{resource_pattern} action=#{action} resource=#{resource}") if matched
+        matched
       end
 
       private
@@ -38,6 +44,8 @@ module Legion
     end
 
     class DenyRule
+      include Legion::Logging::Helper
+
       attr_reader :resource_pattern, :above_level
 
       def initialize(resource_pattern:, above_level: nil)
@@ -47,12 +55,18 @@ module Legion
 
       def matches?(resource, **opts)
         return false unless pattern_matches?(resource)
-        return true if above_level.nil?
+
+        if above_level.nil?
+          log.debug("RBAC deny rule matched pattern=#{resource_pattern} resource=#{resource}")
+          return true
+        end
 
         level = opts[:level]
         return false if level.nil?
 
-        level > above_level
+        matched = level > above_level
+        log.debug("RBAC deny rule matched pattern=#{resource_pattern} resource=#{resource} level=#{level} above_level=#{above_level}") if matched
+        matched
       end
 
       private

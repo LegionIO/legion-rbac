@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require 'legion/rbac/permission'
 
 module Legion
   module Rbac
     class Role
+      include Legion::Logging::Helper
+
       attr_reader :name, :description, :permissions, :deny_rules, :cross_team,
                   :capability_grants, :capability_denials
 
@@ -21,6 +24,10 @@ module Legion
         @cross_team = cross_team
         @capability_grants = Array(capability_grants).map(&:to_sym)
         @capability_denials = Array(capability_denials).map(&:to_sym)
+        log.debug(
+          "RBAC role initialized name=#{@name} permissions=#{@permissions.size} deny_rules=#{@deny_rules.size} " \
+          "cross_team=#{@cross_team} capability_grants=#{@capability_grants.size} capability_denials=#{@capability_denials.size}"
+        )
       end
 
       def cross_team?
@@ -29,9 +36,14 @@ module Legion
 
       def capability_allowed?(capability)
         cap = capability.to_sym
-        return false if @capability_denials.include?(cap)
+        if @capability_denials.include?(cap)
+          log.debug("RBAC role capability name=#{@name} capability=#{cap} allowed=false reason=denied")
+          return false
+        end
 
-        @capability_grants.include?(cap)
+        allowed = @capability_grants.include?(cap)
+        log.debug("RBAC role capability name=#{@name} capability=#{cap} allowed=#{allowed}")
+        allowed
       end
     end
   end

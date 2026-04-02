@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Rbac
     module CapabilityAudit
+      extend Legion::Logging::Helper
+
       PATTERN_TO_CAPABILITY = {
         /\bKernel\.system\b|\bsystem\s*\(/     => :shell_execute,
         /\bKernel\.exec\b|\bexec\s*\(/         => :shell_execute,
@@ -49,24 +53,50 @@ module Legion
 
       class << self
         def audit(extension_name:, source_path:, declared_capabilities: [])
-          return skip_result(extension_name, 'capability audit disabled') unless enabled?
+          log.info(
+            "RBAC capability_audit start extension=#{extension_name} source_path=#{source_path} " \
+            "declared=#{Array(declared_capabilities).size}"
+          )
+          unless enabled?
+            result = skip_result(extension_name, 'capability audit disabled')
+            log.info("RBAC capability_audit skipped extension=#{extension_name} reason=#{result.reason}")
+            return result
+          end
 
-          return skip_result(extension_name, 'no source path') unless source_path && Dir.exist?(source_path.to_s)
+          unless source_path && Dir.exist?(source_path.to_s)
+            result = skip_result(extension_name, 'no source path')
+            log.info("RBAC capability_audit skipped extension=#{extension_name} reason=#{result.reason}")
+            return result
+          end
 
           detected = scan_source(source_path)
           declared_syms = Array(declared_capabilities).map(&:to_sym)
           undeclared = (detected.uniq - declared_syms)
 
-          if undeclared.empty?
-            AuditResult.new(
-              extension_name: extension_name,
-              detected:       detected,
-              declared:       declared_syms,
-              allowed:        true
-            )
-          else
-            handle_undeclared(extension_name, detected, declared_syms, undeclared)
-          end
+          result = if undeclared.empty?
+                     AuditResult.new(
+                       extension_name: extension_name,
+                       detected:       detected,
+                       declared:       declared_syms,
+                       allowed:        true
+                     )
+                   else
+                     handle_undeclared(extension_name, detected, declared_syms, undeclared)
+                   end
+          log.info(
+            "RBAC capability_audit extension=#{extension_name} allowed=#{result.allowed} " \
+            "detected=#{result.detected_capabilities.size} undeclared=#{result.undeclared.size}"
+          )
+          result
+        rescue StandardError => e
+          handle_exception(
+            e,
+            level:          :error,
+            operation:      'rbac.capability_audit.audit',
+            extension_name: extension_name,
+            source_path:    source_path
+          )
+          raise
         end
 
         def enabled?
@@ -83,13 +113,15 @@ module Legion
 
         def scan_source(source_path)
           capabilities = []
-          Dir.glob(File.join(source_path, '**', '*.rb')).each do |file|
+          files = Dir.glob(File.join(source_path, '**', '*.rb'))
+          files.each do |file|
             File.foreach(file) do |line|
               PATTERN_TO_CAPABILITY.each do |pattern, capability|
                 capabilities << capability if line.match?(pattern)
               end
             end
           end
+          log.debug("RBAC capability_audit scanned source_path=#{source_path} files=#{files.size}")
           capabilities.uniq
         end
 
@@ -104,6 +136,7 @@ module Legion
               reason:         "undeclared capabilities (warn mode): #{undeclared.join(', ')}"
             )
           else
+            log.warn("CapabilityAudit: #{extension_name} blocked for undeclared capabilities: #{undeclared.join(', ')}")
             AuditResult.new(
               extension_name: extension_name,
               detected:       detected,
@@ -115,14 +148,11 @@ module Legion
         end
 
         def log_warning(extension_name, undeclared)
-          return unless defined?(Legion::Logging)
-
-          Legion::Logging.warn(
-            "CapabilityAudit: #{extension_name} uses undeclared capabilities: #{undeclared.join(', ')}"
-          )
+          log.warn("CapabilityAudit: #{extension_name} uses undeclared capabilities: #{undeclared.join(', ')}")
         end
 
         def skip_result(extension_name, reason)
+          log.debug("RBAC capability_audit skip_result extension=#{extension_name} reason=#{reason}")
           AuditResult.new(
             extension_name: extension_name,
             detected:       [],

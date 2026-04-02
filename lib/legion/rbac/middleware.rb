@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Rbac
     class Middleware
+      include Legion::Logging::Helper
+
       SKIP_PATHS = %w[/api/health /api/ready /api/openapi.json].freeze
 
       ROUTE_PERMISSIONS = {
@@ -34,14 +38,26 @@ module Legion
         return @app.call(env) unless enforce?
 
         path = env['PATH_INFO']
-        return @app.call(env) if skip_path?(path)
-        return @app.call(env) if invoke_route?(path)
+        if skip_path?(path)
+          log.debug("RBAC middleware bypass path=#{path} reason=skip_path")
+          return @app.call(env)
+        end
+        if invoke_route?(path)
+          log.debug("RBAC middleware bypass path=#{path} reason=invoke_route")
+          return @app.call(env)
+        end
 
         principal = env['legion.principal']
-        return denied_response('unauthenticated') unless principal
+        unless principal
+          log.warn("RBAC middleware denied method=#{env['REQUEST_METHOD']} path=#{path} reason=unauthenticated")
+          return denied_response('unauthenticated')
+        end
 
         perm = find_permission(env['REQUEST_METHOD'], path)
-        return denied_response('unmapped route') unless perm
+        unless perm
+          log.warn("RBAC middleware denied method=#{env['REQUEST_METHOD']} path=#{path} reason=unmapped_route")
+          return denied_response('unmapped route')
+        end
 
         result = PolicyEngine.evaluate(
           principal: principal,
@@ -50,11 +66,28 @@ module Legion
         )
 
         if result[:allowed]
+          log.info(
+            "RBAC middleware allowed principal=#{principal.id} method=#{env['REQUEST_METHOD']} " \
+            "path=#{path} resource=#{perm[:resource]} action=#{perm[:action]}"
+          )
           @app.call(env)
         else
           Legion::Events.emit('rbac.deny', reason: result[:reason]) if defined?(Legion::Events)
+          log.warn(
+            "RBAC middleware denied principal=#{principal.id} method=#{env['REQUEST_METHOD']} " \
+            "path=#{path} reason=#{result[:reason]}"
+          )
           denied_response(result[:reason])
         end
+      rescue StandardError => e
+        handle_exception(
+          e,
+          level:     :error,
+          operation: 'rbac.middleware.call',
+          method:    env['REQUEST_METHOD'],
+          path:      env['PATH_INFO']
+        )
+        raise
       end
 
       private
@@ -69,14 +102,20 @@ module Legion
 
       def find_permission(method, path)
         key = "#{method} #{path}"
-        return ROUTE_PERMISSIONS[key] if ROUTE_PERMISSIONS.key?(key)
+        if ROUTE_PERMISSIONS.key?(key)
+          log.debug("RBAC middleware route_permission method=#{method} path=#{path} match=exact")
+          return ROUTE_PERMISSIONS[key]
+        end
 
         ROUTE_PERMISSIONS.each do |pattern, perm|
           pattern_method, pattern_path = pattern.split(' ', 2)
           next unless pattern_method == method
 
           regex = pattern_path.gsub('*', '[^/]+')
-          return perm if path.match?(/\A#{regex}\z/)
+          if path.match?(/\A#{regex}\z/)
+            log.debug("RBAC middleware route_permission method=#{method} path=#{path} match=pattern pattern=#{pattern}")
+            return perm
+          end
         end
         nil
       end
@@ -86,11 +125,12 @@ module Legion
 
         Legion::Settings[:rbac][:enforce]
       rescue StandardError => e
-        Legion::Logging.warn("Legion::Rbac::Middleware#enforce? failed, defaulting to enforce: #{e.message}") if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, operation: 'rbac.middleware.enforce')
         true
       end
 
       def denied_response(reason)
+        log.debug("RBAC middleware denied_response reason=#{reason}")
         body = Legion::JSON.dump({ error: 'access_denied', reason: reason })
         [403, { 'content-type' => 'application/json' }, [body]]
       end

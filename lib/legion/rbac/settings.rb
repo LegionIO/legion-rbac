@@ -1,9 +1,14 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Rbac
     module Settings
+      extend Legion::Logging::Helper
+
       def self.default
+        log.debug('RBAC default settings requested')
         {
           enabled:            true,
           enforce:            true,
@@ -18,6 +23,7 @@ module Legion
       end
 
       def self.capability_audit_defaults
+        log.debug('RBAC capability audit defaults requested')
         {
           enabled:           true,
           mode:              'enforce',
@@ -26,6 +32,7 @@ module Legion
       end
 
       def self.default_roles
+        log.debug('RBAC default roles requested')
         {
           worker:                worker_role,
           supervisor:            supervisor_role,
@@ -35,6 +42,7 @@ module Legion
       end
 
       def self.entra_defaults
+        log.debug('RBAC Entra defaults requested')
         {
           tenant_id:    nil,
           role_map:     {
@@ -49,6 +57,7 @@ module Legion
       end
 
       def self.worker_role
+        log.debug('RBAC worker role template requested')
         {
           description:        'Execute assigned runners within team scope',
           permissions:        [
@@ -68,6 +77,7 @@ module Legion
       end
 
       def self.supervisor_role
+        log.debug('RBAC supervisor role template requested')
         {
           description:        'Manage workers and schedules within team scope',
           permissions:        [
@@ -88,6 +98,7 @@ module Legion
       end
 
       def self.admin_role
+        log.debug('RBAC admin role template requested')
         {
           description:        'Full access, cross-team capability',
           permissions:        [
@@ -101,6 +112,7 @@ module Legion
       end
 
       def self.governance_observer_role
+        log.debug('RBAC governance observer role template requested')
         {
           description:        'Read-only visibility across all teams for audit and compliance',
           permissions:        [

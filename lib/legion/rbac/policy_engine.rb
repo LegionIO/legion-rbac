@@ -1,43 +1,66 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
+
 module Legion
   module Rbac
     module PolicyEngine
+      extend Legion::Logging::Helper
+
       def self.evaluate(principal:, action:, resource:, role_index: nil, enforce: nil, **)
         role_index ||= Legion::Rbac.role_index || {}
         enforce = Legion::Settings[:rbac][:enforce] if enforce.nil?
 
         resolved_roles = resolve_roles(principal, role_index)
 
-        if resolved_roles.empty?
-          return build_result(allowed: false, reason: 'no roles assigned', principal: principal,
-                              action: action, resource: resource, enforce: enforce)
-        end
+        result = if resolved_roles.empty?
+                   build_result(allowed: false, reason: 'no roles assigned', principal: principal,
+                                action: action, resource: resource, enforce: enforce)
+                 else
+                   denied, deny_reason = check_deny_rules(resolved_roles, resource, **)
+                   if denied
+                     build_result(allowed: false, reason: deny_reason, principal: principal,
+                                  action: action, resource: resource, enforce: enforce)
+                   elsif check_permissions(resolved_roles, resource, action)
+                     build_result(allowed: true, principal: principal, action: action,
+                                  resource: resource, enforce: enforce)
+                   else
+                     build_result(allowed: false, reason: 'no matching permission', principal: principal,
+                                  action: action, resource: resource, enforce: enforce)
+                   end
+                 end
 
-        denied, deny_reason = check_deny_rules(resolved_roles, resource, **)
-        if denied
-          return build_result(allowed: false, reason: deny_reason, principal: principal,
-                              action: action, resource: resource, enforce: enforce)
-        end
-
-        permitted = check_permissions(resolved_roles, resource, action)
-        if permitted
-          return build_result(allowed: true, principal: principal, action: action,
-                              resource: resource, enforce: enforce)
-        end
-
-        build_result(allowed: false, reason: 'no matching permission', principal: principal,
-                     action: action, resource: resource, enforce: enforce)
+        log.info(
+          "RBAC evaluate principal=#{principal.id} action=#{action} resource=#{resource} " \
+          "allowed=#{result[:allowed]} enforce=#{enforce} reason=#{result[:reason] || 'none'}"
+        )
+        result
+      rescue StandardError => e
+        handle_exception(
+          e,
+          level:        :error,
+          operation:    'rbac.policy_engine.evaluate',
+          principal_id: principal&.id,
+          action:       action,
+          resource:     resource
+        )
+        raise
       end
 
       def self.resolve_roles(principal, role_index)
-        principal.roles.filter_map { |name| role_index[name.to_sym] }
+        roles = principal.roles.filter_map { |name| role_index[name.to_sym] }
+        log.debug("RBAC resolve_roles principal=#{principal.id} roles=#{roles.map(&:name).join(',')}")
+        roles
       end
 
       def self.check_deny_rules(roles, resource, **)
         roles.each do |role|
           role.deny_rules.each do |rule|
-            return [true, "denied by #{role.name} deny rule: #{rule.resource_pattern}"] if rule.matches?(resource, **)
+            next unless rule.matches?(resource, **)
+
+            reason = "denied by #{role.name} deny rule: #{rule.resource_pattern}"
+            log.debug("RBAC deny rule triggered role=#{role.name} resource=#{resource} reason=#{reason}")
+            return [true, reason]
           end
         end
         [false, nil]
@@ -45,7 +68,11 @@ module Legion
 
       def self.check_permissions(roles, resource, action)
         roles.any? do |role|
-          role.permissions.any? { |perm| perm.matches?(resource, action) }
+          role.permissions.any? do |perm|
+            matched = perm.matches?(resource, action)
+            log.debug("RBAC permission granted role=#{role.name} action=#{action} resource=#{resource}") if matched
+            matched
+          end
         end
       end
 
@@ -55,36 +82,47 @@ module Legion
 
         resolved_roles = resolve_roles(principal, role_index)
 
-        if resolved_roles.empty?
-          return build_capability_result(
-            allowed: false, reason: 'no roles assigned',
-            principal: principal, capability: capability,
-            extension_name: extension_name, enforce: enforce
-          )
-        end
+        capability = capability.to_sym
+        result = if resolved_roles.empty?
+                   build_capability_result(
+                     allowed: false, reason: 'no roles assigned',
+                     principal: principal, capability: capability,
+                     extension_name: extension_name, enforce: enforce
+                   )
+                 elsif resolved_roles.any? { |role| role.capability_denials.include?(capability) }
+                   build_capability_result(
+                     allowed: false, reason: "capability #{capability} denied by role policy",
+                     principal: principal, capability: capability,
+                     extension_name: extension_name, enforce: enforce
+                   )
+                 elsif resolved_roles.any? { |role| role.capability_grants.include?(capability) }
+                   build_capability_result(
+                     allowed: true, principal: principal, capability: capability,
+                     extension_name: extension_name, enforce: enforce
+                   )
+                 else
+                   build_capability_result(
+                     allowed: false, reason: "capability #{capability} not granted by any role",
+                     principal: principal, capability: capability,
+                     extension_name: extension_name, enforce: enforce
+                   )
+                 end
 
-        denied = resolved_roles.any? { |role| role.capability_denials.include?(capability.to_sym) }
-        if denied
-          return build_capability_result(
-            allowed: false, reason: "capability #{capability} denied by role policy",
-            principal: principal, capability: capability,
-            extension_name: extension_name, enforce: enforce
-          )
-        end
-
-        granted = resolved_roles.any? { |role| role.capability_grants.include?(capability.to_sym) }
-        unless granted
-          return build_capability_result(
-            allowed: false, reason: "capability #{capability} not granted by any role",
-            principal: principal, capability: capability,
-            extension_name: extension_name, enforce: enforce
-          )
-        end
-
-        build_capability_result(
-          allowed: true, principal: principal, capability: capability,
-          extension_name: extension_name, enforce: enforce
+        log.info(
+          "RBAC evaluate_capability principal=#{principal.id} capability=#{capability} " \
+          "extension=#{extension_name} allowed=#{result[:allowed]} enforce=#{enforce} reason=#{result[:reason] || 'none'}"
         )
+        result
+      rescue StandardError => e
+        handle_exception(
+          e,
+          level:          :error,
+          operation:      'rbac.policy_engine.evaluate_capability',
+          principal_id:   principal&.id,
+          capability:     capability,
+          extension_name: extension_name
+        )
+        raise
       end
 
       def self.build_result(allowed:, principal:, action:, resource:, enforce:, reason: nil)

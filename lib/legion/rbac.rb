@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'legion/logging/helper'
 require 'legion/rbac/version'
 require 'legion/rbac/settings'
 require 'legion/rbac/permission'
@@ -29,29 +30,36 @@ module Legion
     class << self
       attr_reader :role_index
 
+      include Legion::Logging::Helper
+
       def register_routes
         return unless defined?(Legion::API) && Legion::API.respond_to?(:register_library_routes)
 
         Legion::API.register_library_routes('rbac', Legion::Rbac::Routes)
-        Legion::Logging.debug 'Legion::Rbac routes registered with API' if defined?(Legion::Logging)
+        log.debug 'Legion::Rbac routes registered with API'
       rescue StandardError => e
-        Legion::Logging.warn "Legion::Rbac route registration failed: #{e.message}" if defined?(Legion::Logging)
+        handle_exception(e, level: :warn, operation: 'rbac.register_routes')
       end
 
       def setup
+        log.info 'Legion::Rbac setup started'
         Legion::Settings.merge_settings(:rbac, Legion::Rbac::Settings.default)
         @role_index = ConfigLoader.load_roles
         Legion::Settings[:rbac][:connected] = true
         register_routes
+        log.info "Legion::Rbac connected roles=#{@role_index&.size || 0}"
       end
 
       def shutdown
         @role_index = nil
         Legion::Settings[:rbac][:connected] = false
+        log.info 'Legion::Rbac shutdown complete'
       end
 
       def authorize!(principal:, action:, resource:, **)
         result = PolicyEngine.evaluate(principal: principal, action: action, resource: resource, **)
+        log.info("RBAC authorize principal=#{principal.id} action=#{action} resource=#{resource} allowed=#{result[:allowed]}")
+        log.warn("RBAC authorize denied principal=#{principal.id} reason=#{result[:reason]}") unless result[:allowed]
         raise AccessDenied, result unless result[:allowed]
 
         result
@@ -59,10 +67,12 @@ module Legion
 
       def authorize_execution!(principal:, runner_class:, function:, **)
         runner_path = build_runner_path(runner_class, function)
+        log.info("RBAC authorize_execution principal=#{principal.id} runner=#{runner_path}")
         authorize!(principal: principal, action: :execute, resource: runner_path, **)
       end
 
       def audit_extension(extension_name:, source_path:, declared_capabilities: [])
+        log.info("RBAC audit_extension extension=#{extension_name} source_path=#{source_path}")
         result = CapabilityAudit.audit(
           extension_name:        extension_name,
           source_path:           source_path,
@@ -73,6 +83,10 @@ module Legion
           capabilities: result.detected_capabilities,
           audit_result: result
         )
+        log.info(
+          "RBAC audit_extension result extension=#{extension_name} allowed=#{result.allowed} " \
+          "detected=#{result.detected_capabilities.size} undeclared=#{result.undeclared.size}"
+        )
         result
       end
 
@@ -82,6 +96,11 @@ module Legion
           capability:     capability,
           extension_name: extension_name
         )
+        log.info(
+          "RBAC authorize_capability principal=#{principal.id} capability=#{capability} " \
+          "extension=#{extension_name} allowed=#{result[:allowed]}"
+        )
+        log.warn("RBAC authorize_capability denied principal=#{principal.id} reason=#{result[:reason]}") unless result[:allowed]
         raise AccessDenied, result unless result[:allowed]
 
         result
@@ -97,7 +116,9 @@ module Legion
           snake = p.gsub(/([A-Z])/, '_\1').sub(/^_/, '').downcase
           i.zero? ? snake.tr('_', '-') : snake
         end
-        "runners/#{segments.join('/')}/#{function}"
+        runner_path = "runners/#{segments.join('/')}/#{function}"
+        log.debug("RBAC runner path built class_name=#{class_name} runner_path=#{runner_path}")
+        runner_path
       end
     end
   end

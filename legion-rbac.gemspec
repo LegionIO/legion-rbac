@@ -27,6 +27,6 @@ Gem::Specification.new do |spec|
   }
 
   spec.add_dependency 'legion-json', '>= 1.2.0'
-  spec.add_dependency 'legion-logging', '>= 1.4.3'
+  spec.add_dependency 'legion-logging', '>= 1.5.0'
   spec.add_dependency 'legion-settings', '>= 1.3.12'
 end

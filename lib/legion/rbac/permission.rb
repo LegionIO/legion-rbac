@@ -12,6 +12,7 @@ module Legion
       def initialize(resource_pattern:, actions:)
         @resource_pattern = resource_pattern
         @actions = actions.map(&:to_s)
+        @resource_regex = self.class.send(:pattern_to_regex, resource_pattern)
       end
 
       def matches?(resource, action)
@@ -27,11 +28,10 @@ module Legion
       end
 
       def pattern_matches?(resource)
-        regex = pattern_to_regex(resource_pattern)
-        resource.match?(regex)
+        resource.match?(@resource_regex)
       end
 
-      def pattern_to_regex(pattern)
+      def self.pattern_to_regex(pattern)
         parts = pattern.split('/').map do |segment|
           case segment
           when '*'  then '.*'
@@ -41,6 +41,7 @@ module Legion
         end
         Regexp.new("\\A#{parts.join('/')}\\z")
       end
+      private_class_method :pattern_to_regex
     end
 
     class DenyRule
@@ -51,6 +52,7 @@ module Legion
       def initialize(resource_pattern:, above_level: nil)
         @resource_pattern = resource_pattern
         @above_level = above_level
+        @resource_regex = self.class.send(:pattern_to_regex, resource_pattern)
       end
 
       def matches?(resource, **opts)
@@ -72,11 +74,10 @@ module Legion
       private
 
       def pattern_matches?(resource)
-        regex = pattern_to_regex(resource_pattern)
-        resource.match?(regex)
+        resource.match?(@resource_regex)
       end
 
-      def pattern_to_regex(pattern)
+      def self.pattern_to_regex(pattern)
         parts = pattern.split('/').map do |segment|
           case segment
           when '*'  then '.*'
@@ -86,6 +87,7 @@ module Legion
         end
         Regexp.new("\\A#{parts.join('/')}\\z")
       end
+      private_class_method :pattern_to_regex
     end
   end
 end

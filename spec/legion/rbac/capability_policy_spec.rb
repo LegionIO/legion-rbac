@@ -183,7 +183,7 @@ RSpec.describe Legion::Rbac do
       principal = Legion::Rbac::Principal.new(id: 'worker-1', roles: ['worker'])
       expect do
         described_class.authorize_capability!(principal: principal, capability: :shell_execute)
-      end.to raise_error(Legion::Rbac::AccessDenied)
+      end.to raise_error(Legion::Rbac::AccessDenied, /capability shell_execute/)
     end
 
     it 'returns result when capability is granted' do

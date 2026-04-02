@@ -18,6 +18,15 @@ RSpec.describe Legion::Rbac::CapabilityRegistry do
       expect(described_class.for_extension('lex-dup')).to contain_exactly(:shell_execute, :network_outbound)
     end
 
+    it 'returns a copy of the stored capabilities array' do
+      described_class.register('lex-copy', capabilities: [:shell_execute])
+
+      capabilities = described_class.for_extension('lex-copy')
+      capabilities << :code_eval
+
+      expect(described_class.for_extension('lex-copy')).to eq([:shell_execute])
+    end
+
     it 'stores audit_result when provided' do
       audit = instance_double(Legion::Rbac::CapabilityAudit::AuditResult)
       described_class.register('lex-audited', capabilities: [:shell_execute], audit_result: audit)
@@ -46,6 +55,15 @@ RSpec.describe Legion::Rbac::CapabilityRegistry do
       described_class.register('lex-a', capabilities: [:shell_execute])
       described_class.register('lex-b', capabilities: [:network_outbound])
       expect(described_class.all.keys).to contain_exactly('lex-a', 'lex-b')
+    end
+
+    it 'returns a copy of the registry entries' do
+      described_class.register('lex-a', capabilities: [:shell_execute])
+
+      registry = described_class.all
+      registry['lex-a'][:capabilities] << :code_eval
+
+      expect(described_class.for_extension('lex-a')).to eq([:shell_execute])
     end
   end
 

@@ -23,7 +23,7 @@ module Legion
         def for_extension(extension_name)
           capabilities = mon.synchronize do
             entry = entries[extension_name.to_s]
-            entry ? entry[:capabilities] : []
+            entry ? entry[:capabilities].dup : []
           end
           log.debug("RBAC capability_registry for_extension extension=#{extension_name} count=#{capabilities.size}")
           capabilities
@@ -48,7 +48,15 @@ module Legion
         end
 
         def all
-          registry = mon.synchronize { entries.dup }
+          registry = mon.synchronize do
+            entries.each_with_object({}) do |(extension_name, entry), copy|
+              copy[extension_name] = {
+                capabilities:  entry[:capabilities].dup,
+                audit_result:  entry[:audit_result],
+                registered_at: entry[:registered_at]
+              }
+            end
+          end
           log.debug("RBAC capability_registry all count=#{registry.size}")
           registry
         end

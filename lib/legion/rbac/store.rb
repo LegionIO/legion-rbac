@@ -21,7 +21,7 @@ module Legion
                     query[:principal_type] = principal_type if principal_type
                     Legion::Data::Model::RbacRoleAssignment.where(query).all.select(&:active?).map(&:role)
                   else
-                    static_roles_for(principal_id)
+                    static_roles_for(principal_id, principal_type)
                   end
           log.info(
             "RBAC roles_for principal_id=#{principal_id} principal_type=#{principal_type || 'any'} " \
@@ -63,10 +63,19 @@ module Legion
 
         private
 
-        def static_roles_for(principal_id)
+        def static_roles_for(principal_id, principal_type)
           assignments = Legion::Settings[:rbac][:static_assignments] || []
-          roles = assignments.select { |a| a[:principal_id] == principal_id }.map { |a| a[:role] }
-          log.debug("RBAC static_roles_for principal_id=#{principal_id} count=#{roles.size}")
+          matching_assignments = assignments.select do |assignment|
+            next false unless assignment[:principal_id] == principal_id
+            next true if principal_type.nil?
+
+            assignment[:principal_type].to_s == principal_type.to_s
+          end
+          roles = matching_assignments.map { |assignment| assignment[:role] }
+          log.debug(
+            "RBAC static_roles_for principal_id=#{principal_id} principal_type=#{principal_type || 'any'} " \
+            "count=#{roles.size}"
+          )
           roles
         end
       end

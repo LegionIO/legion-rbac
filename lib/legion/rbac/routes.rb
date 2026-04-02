@@ -14,6 +14,9 @@ module Legion
     module Routes
       class InvalidTimestamp < StandardError; end
 
+      DEFAULT_COLLECTION_LIMIT = 100
+      MAX_COLLECTION_LIMIT = 500
+
       def self.registered(app)
         app.helpers do # rubocop:disable Metrics/BlockLength
           unless method_defined?(:parse_request_body)
@@ -57,7 +60,7 @@ module Legion
           unless method_defined?(:json_collection)
             define_method(:json_collection) do |dataset|
               content_type :json
-              Legion::JSON.dump({ data: dataset.all.map(&:values) })
+              Legion::JSON.dump(Legion::Rbac::Routes.send(:collection_payload, dataset, params))
             end
           end
 
@@ -271,8 +274,41 @@ module Legion
           raise InvalidTimestamp, "#{field} must be a valid ISO8601 timestamp"
         end
 
+        def collection_payload(dataset, params)
+          limit = collection_limit(params)
+          offset = collection_offset(params)
+          rows = dataset.limit(limit, offset).all.map(&:values)
+          {
+            data:       rows,
+            pagination: {
+              limit:    limit,
+              offset:   offset,
+              returned: rows.size
+            }
+          }
+        end
+
+        def collection_limit(params)
+          requested = collection_integer(params, :limit)
+          return DEFAULT_COLLECTION_LIMIT unless requested&.positive?
+
+          [requested, MAX_COLLECTION_LIMIT].min
+        end
+
+        def collection_offset(params)
+          requested = collection_integer(params, :offset)
+          requested&.positive? ? requested : 0
+        end
+
+        def collection_integer(params, key)
+          value = params[key] || params[key.to_s]
+          return nil if value.nil? || value.to_s.empty?
+
+          Integer(value, exception: false)
+        end
+
         private :register_roles, :register_check, :register_assignments, :register_grants, :register_cross_team_grants,
-                :parse_optional_time
+                :parse_optional_time, :collection_payload, :collection_limit, :collection_offset, :collection_integer
       end
     end
   end

@@ -28,4 +28,28 @@ RSpec.describe Legion::Rbac::Routes do
       end.to raise_error(Legion::Rbac::Routes::InvalidTimestamp, 'expires_at must be a valid ISO8601 timestamp')
     end
   end
+
+  describe '.collection_payload' do
+    let(:row_one) { instance_double('RowOne', values: { id: 1 }) }
+    let(:row_two) { instance_double('RowTwo', values: { id: 2 }) }
+    let(:windowed_dataset) { instance_double('WindowedDataset', all: [row_one, row_two]) }
+    let(:dataset) { instance_double('Dataset') }
+
+    it 'applies limit and offset bounds to collection responses' do
+      expect(dataset).to receive(:limit).with(25, 10).and_return(windowed_dataset)
+
+      payload = described_class.send(:collection_payload, dataset, { 'limit' => '25', 'offset' => '10' })
+
+      expect(payload).to eq(
+        data:       [{ id: 1 }, { id: 2 }],
+        pagination: { limit: 25, offset: 10, returned: 2 }
+      )
+    end
+
+    it 'caps oversized limits and normalizes invalid offsets' do
+      expect(described_class.send(:collection_limit, { 'limit' => '9999' })).to eq(described_class::MAX_COLLECTION_LIMIT)
+      expect(described_class.send(:collection_limit, { 'limit' => 'nope' })).to eq(described_class::DEFAULT_COLLECTION_LIMIT)
+      expect(described_class.send(:collection_offset, { 'offset' => '-4' })).to eq(0)
+    end
+  end
 end

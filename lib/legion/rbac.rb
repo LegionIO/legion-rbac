@@ -24,7 +24,12 @@ module Legion
 
       def initialize(result)
         @result = result
-        super("Access denied: #{result[:reason]} (#{result[:resource]} / #{result[:action]})")
+        detail = if result[:capability]
+                   "capability #{result[:capability]}"
+                 else
+                   "#{result[:resource]} / #{result[:action]}"
+                 end
+        super("Access denied: #{result[:reason]} (#{detail})")
       end
     end
 

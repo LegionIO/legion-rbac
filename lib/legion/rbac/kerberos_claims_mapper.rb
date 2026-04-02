@@ -44,10 +44,15 @@ module Legion
           claims = map(principal: principal, groups: groups, role_map: role_map, default_role: default_role, **profile)
           log.info("RBAC kerberos_claims fallback principal=#{principal} path=groups")
         elsif fallback == :entra && defined?(Legion::Rbac::EntraClaimsMapper)
-          entra_claims = { sub: principal, preferred_username: principal }
-          result = EntraClaimsMapper.map_claims(entra_claims)
-          claims = result&.merge(auth_method: 'kerberos') || map(principal: principal, groups: [],
-                                                                 role_map: role_map, default_role: default_role)
+          entra_claims = { sub: principal, preferred_username: principal, **profile }.compact
+          result = EntraClaimsMapper.map_claims(entra_claims, role_map: role_map, default_role: default_role)
+          claims = result&.merge(auth_method: 'kerberos', **profile) || map(
+            principal:    principal,
+            groups:       [],
+            role_map:     role_map,
+            default_role: default_role,
+            **profile
+          )
           log.info("RBAC kerberos_claims fallback principal=#{principal} path=entra")
         else
           claims = map(principal: principal, groups: [], role_map: role_map, default_role: default_role, **profile)

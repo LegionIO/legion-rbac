@@ -8,6 +8,10 @@ RSpec.describe Legion::Rbac do
     expect(Legion::Rbac::VERSION).not_to be_nil
   end
 
+  it 'loads KerberosClaimsMapper from the gem entrypoint' do
+    expect(defined?(Legion::Rbac::KerberosClaimsMapper)).to eq('constant')
+  end
+
   it 'boots from the gem entrypoint without preloading legion/logging' do
     root = File.expand_path('../..', __dir__)
     script = <<~RUBY

@@ -141,6 +141,23 @@ RSpec.describe Legion::Rbac::KerberosClaimsMapper do
           expect(result[:roles]).to eq(['supervisor'])
           expect(result[:auth_method]).to eq('kerberos')
         end
+
+        it 'passes default_role and profile through the Entra fallback' do
+          described_class.map_with_fallback(
+            principal:    'miverso2@MS.DS.UHC.COM',
+            groups:       nil,
+            fallback:     :entra,
+            role_map:     role_map,
+            default_role: 'governance-observer',
+            title:        'Engineer'
+          )
+
+          expect(Legion::Rbac::EntraClaimsMapper).to have_received(:map_claims).with(
+            hash_including(sub: 'miverso2@MS.DS.UHC.COM', preferred_username: 'miverso2@MS.DS.UHC.COM', title: 'Engineer'),
+            role_map:     role_map,
+            default_role: 'governance-observer'
+          )
+        end
       end
 
       context 'when EntraClaimsMapper returns nil' do
@@ -157,6 +174,20 @@ RSpec.describe Legion::Rbac::KerberosClaimsMapper do
             role_map:  role_map
           )
           expect(result[:roles]).to eq(['worker'])
+        end
+
+        it 'preserves default_role and profile when Entra returns nil' do
+          result = described_class.map_with_fallback(
+            principal:    'miverso2@MS.DS.UHC.COM',
+            groups:       nil,
+            fallback:     :entra,
+            role_map:     role_map,
+            default_role: 'observer',
+            title:        'Engineer'
+          )
+
+          expect(result[:roles]).to eq(['observer'])
+          expect(result[:title]).to eq('Engineer')
         end
       end
     end

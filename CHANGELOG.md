@@ -10,6 +10,7 @@
 - Exposed `KerberosClaimsMapper` from the gem entrypoint and preserved caller-supplied fallback defaults/profile attributes when Kerberos fallback delegates to Entra.
 - Made `rbac.enabled` disable RBAC setup/enforcement paths consistently and normalized malformed `expires_at` inputs into validation errors with explicit time parsing.
 - Expanded middleware route coverage to include `/api/rbac/*`, honored `rbac.route_permissions` overrides, and compiled route matchers once per permission table.
+- Wired static and DB-backed role assignments into policy evaluation, enforced `target_team` scope in the core evaluator, and made execution authorization intersect role policy with runner grants and cross-team grants.
 
 ## [0.2.9] - 2026-03-31
 

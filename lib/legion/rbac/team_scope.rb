@@ -7,7 +7,7 @@ module Legion
     module TeamScope
       extend Legion::Logging::Helper
 
-      def self.allowed?(principal:, target_team:, role_index: nil)
+      def self.allowed?(principal:, target_team:, role_index: nil, resolved_roles: nil)
         if target_team.nil?
           log.debug("RBAC team_scope allowed principal=#{principal.id} reason=no_target_team")
           return true
@@ -21,8 +21,10 @@ module Legion
           return true
         end
 
-        role_index ||= Legion::Rbac.role_index || {}
-        resolved_roles = principal.roles.filter_map { |name| role_index[name.to_sym] }
+        resolved_roles ||= begin
+          role_index ||= Legion::Rbac.role_index || {}
+          principal.roles.filter_map { |name| role_index[name.to_sym] }
+        end
         allowed = resolved_roles.any?(&:cross_team?)
         log.info(
           "RBAC team_scope principal=#{principal.id} principal_team=#{principal.team} " \

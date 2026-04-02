@@ -79,10 +79,23 @@ module Legion
         result
       end
 
-      def authorize_execution!(principal:, runner_class:, function:, **)
+      def authorize_execution!(principal:, runner_class:, function:, target_team: nil, **)
         runner_path = build_runner_path(runner_class, function)
-        log.info("RBAC authorize_execution principal=#{principal.id} runner=#{runner_path}")
-        authorize!(principal: principal, action: :execute, resource: runner_path, **)
+        log.info(
+          "RBAC authorize_execution principal=#{principal.id} runner=#{runner_path} " \
+          "target_team=#{target_team || principal.team || 'none'}"
+        )
+        result = PolicyEngine.evaluate_execution(
+          principal:   principal,
+          action:      :execute,
+          resource:    runner_path,
+          target_team: target_team,
+          **
+        )
+        log.warn("RBAC authorize_execution denied principal=#{principal.id} reason=#{result[:reason]}") unless result[:allowed]
+        raise AccessDenied, result unless result[:allowed]
+
+        result
       end
 
       def audit_extension(extension_name:, source_path:, declared_capabilities: [])

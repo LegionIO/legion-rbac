@@ -60,6 +60,17 @@ RSpec.describe Legion::Rbac do
     expect(Legion::Settings[:rbac][:connected]).to be true
   end
 
+  it 'does not connect when rbac.enabled is false' do
+    Legion::Settings[:rbac][:enabled] = false
+
+    described_class.setup
+
+    expect(Legion::Settings[:rbac][:connected]).to be false
+    expect(described_class.role_index).to be_nil
+  ensure
+    Legion::Settings[:rbac][:enabled] = true
+  end
+
   it 'marks disconnected on shutdown' do
     described_class.setup
     described_class.shutdown

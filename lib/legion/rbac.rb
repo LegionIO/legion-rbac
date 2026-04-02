@@ -45,6 +45,13 @@ module Legion
       def setup
         log.info 'Legion::Rbac setup started'
         Legion::Settings.merge_settings(:rbac, Legion::Rbac::Settings.default)
+        unless enabled?
+          @role_index = nil
+          Legion::Settings[:rbac][:connected] = false
+          log.info 'Legion::Rbac disabled via settings'
+          return
+        end
+
         @role_index = ConfigLoader.load_roles
         Legion::Settings[:rbac][:connected] = true
         register_routes
@@ -55,6 +62,12 @@ module Legion
         @role_index = nil
         Legion::Settings[:rbac][:connected] = false
         log.info 'Legion::Rbac shutdown complete'
+      end
+
+      def enabled?
+        return true unless defined?(Legion::Settings)
+
+        Legion::Settings[:rbac]&.fetch(:enabled, true) != false
       end
 
       def authorize!(principal:, action:, resource:, **)

@@ -82,6 +82,18 @@ RSpec.describe Legion::Rbac::Middleware do
     end
   end
 
+  describe 'disabled mode' do
+    it 'bypasses enforcement when rbac.enabled is false' do
+      Legion::Settings[:rbac][:enabled] = false
+
+      status, = middleware.call(env_for('GET', '/api/tasks'))
+
+      expect(status).to eq(200)
+    ensure
+      Legion::Settings[:rbac][:enabled] = true
+    end
+  end
+
   describe '#enforce?' do
     it 'logs and defaults to true when settings lookup fails' do
       allow(Legion::Settings).to receive(:[]).with(:rbac).and_raise(StandardError, 'settings boom')

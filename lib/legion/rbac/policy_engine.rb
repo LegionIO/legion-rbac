@@ -10,6 +10,7 @@ module Legion
       def self.evaluate(principal:, action:, resource:, role_index: nil, enforce: nil, **)
         role_index ||= Legion::Rbac.role_index || {}
         enforce = Legion::Settings[:rbac][:enforce] if enforce.nil?
+        enforce = false unless Legion::Rbac.enabled?
 
         resolved_roles = resolve_roles(principal, role_index)
 
@@ -79,6 +80,7 @@ module Legion
       def self.evaluate_capability(principal:, capability:, extension_name: nil, role_index: nil, enforce: nil)
         role_index ||= Legion::Rbac.role_index || {}
         enforce = Legion::Settings[:rbac][:enforce] if enforce.nil?
+        enforce = false unless Legion::Rbac.enabled?
 
         resolved_roles = resolve_roles(principal, role_index)
 

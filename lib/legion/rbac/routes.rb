@@ -7,9 +7,13 @@
 # LegionIO/lib/legion/api/rbac.rb is preserved for backward compatibility but guards
 # its registration with defined?(Legion::Rbac::Routes) so double-registration is avoided.
 
+require 'time'
+
 module Legion
   module Rbac
     module Routes
+      class InvalidTimestamp < StandardError; end
+
       def self.registered(app)
         app.helpers do # rubocop:disable Metrics/BlockLength
           unless method_defined?(:parse_request_body)
@@ -145,10 +149,12 @@ module Legion
             role:           body[:role],
             team:           body[:team],
             granted_by:     current_owner_msid || 'api',
-            expires_at:     body[:expires_at] ? Time.parse(body[:expires_at]) : nil
+            expires_at:     parse_optional_time(body[:expires_at], field: 'expires_at')
           )
           Legion::Logging.info "API: created RBAC assignment #{record.id} role=#{body[:role]} principal=#{body[:principal_id]}" if defined?(Legion::Logging)
           json_response(record.values, status_code: 201)
+        rescue Legion::Rbac::Routes::InvalidTimestamp => e
+          json_error('validation_error', e.message, status_code: 422)
         rescue Sequel::ValidationFailed => e
           Legion::Logging.warn "API POST /api/rbac/assignments returned 422: #{e.message}" if defined?(Legion::Logging)
           json_error('validation_error', e.message, status_code: 422)
@@ -230,10 +236,12 @@ module Legion
             runner_pattern: body[:runner_pattern],
             actions:        Array(body[:actions]).join(','),
             granted_by:     current_owner_msid || 'api',
-            expires_at:     body[:expires_at] ? Time.parse(body[:expires_at]) : nil
+            expires_at:     parse_optional_time(body[:expires_at], field: 'expires_at')
           )
           Legion::Logging.info "API: created cross-team RBAC grant #{record.id} #{body[:source_team]}->#{body[:target_team]}" if defined?(Legion::Logging)
           json_response(record.values, status_code: 201)
+        rescue Legion::Rbac::Routes::InvalidTimestamp => e
+          json_error('validation_error', e.message, status_code: 422)
         rescue Sequel::ValidationFailed => e
           Legion::Logging.warn "API POST /api/rbac/grants/cross-team returned 422: #{e.message}" if defined?(Legion::Logging)
           json_error('validation_error', e.message, status_code: 422)
@@ -253,7 +261,18 @@ module Legion
       end
 
       class << self
-        private :register_roles, :register_check, :register_assignments, :register_grants, :register_cross_team_grants
+        private
+
+        def parse_optional_time(value, field:)
+          return nil if value.nil? || value.empty?
+
+          Time.iso8601(value)
+        rescue ArgumentError
+          raise InvalidTimestamp, "#{field} must be a valid ISO8601 timestamp"
+        end
+
+        private :register_roles, :register_check, :register_assignments, :register_grants, :register_cross_team_grants,
+                :parse_optional_time
       end
     end
   end

@@ -122,6 +122,7 @@ module Legion
 
       def enforce?
         return false unless defined?(Legion::Settings)
+        return false if Legion::Settings[:rbac]&.fetch(:enabled, true) == false
 
         Legion::Settings[:rbac][:enforce]
       rescue StandardError => e

@@ -8,6 +8,7 @@
 - Promoted `legion-logging >= 1.4.3` to a runtime gem dependency and added coverage for the new logging rescue paths.
 - Explicitly load full `legion/logging` from RBAC library files so `require 'legion/rbac'` boots cleanly without preloading logging elsewhere.
 - Exposed `KerberosClaimsMapper` from the gem entrypoint and preserved caller-supplied fallback defaults/profile attributes when Kerberos fallback delegates to Entra.
+- Made `rbac.enabled` disable RBAC setup/enforcement paths consistently and normalized malformed `expires_at` inputs into validation errors with explicit time parsing.
 
 ## [0.2.9] - 2026-03-31
 

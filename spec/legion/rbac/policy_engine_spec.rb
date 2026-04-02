@@ -121,6 +121,23 @@ RSpec.describe Legion::Rbac::PolicyEngine do
         expect(result[:would_deny]).to be true
       end
     end
+
+    context 'when rbac is disabled' do
+      it 'does not enforce denials' do
+        Legion::Settings[:rbac][:enabled] = false
+
+        result = described_class.evaluate(
+          principal: principal_with(roles: []),
+          action: :read, resource: 'tasks/123',
+          role_index: role_index
+        )
+
+        expect(result[:allowed]).to be true
+        expect(result[:would_deny]).to be true
+      ensure
+        Legion::Settings[:rbac][:enabled] = true
+      end
+    end
   end
 end
 

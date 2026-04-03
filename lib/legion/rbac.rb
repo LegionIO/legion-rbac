@@ -78,6 +78,12 @@ module Legion
         Legion::Settings[:rbac]&.fetch(:enabled, true) != false
       end
 
+      def enforcing?
+        return true unless defined?(Legion::Settings)
+
+        Legion::Settings[:rbac]&.fetch(:enforce, true) != false
+      end
+
       def events_enabled?
         return false unless defined?(Legion::Events)
         return false unless defined?(Legion::Settings)
@@ -88,15 +94,22 @@ module Legion
       end
 
       def authorize!(principal:, action:, resource:, **)
+        return { allowed: true, reason: 'rbac disabled' } unless enabled?
+
         result = PolicyEngine.evaluate(principal: principal, action: action, resource: resource, **)
         log.info("RBAC authorize principal=#{principal.id} action=#{action} resource=#{resource} allowed=#{result[:allowed]}")
-        log.warn("RBAC authorize denied principal=#{principal.id} reason=#{result[:reason]}") unless result[:allowed]
-        raise AccessDenied, result unless result[:allowed]
+
+        unless result[:allowed]
+          log.warn("RBAC authorize denied principal=#{principal.id} reason=#{result[:reason]}")
+          raise AccessDenied, result if enforcing?
+        end
 
         result
       end
 
       def authorize_execution!(principal:, runner_class:, function:, target_team: nil, **)
+        return { allowed: true, reason: 'rbac disabled' } unless enabled?
+
         runner_path = build_runner_path(runner_class, function)
         log.info(
           "RBAC authorize_execution principal=#{principal.id} runner=#{runner_path} " \
@@ -109,8 +122,11 @@ module Legion
           target_team: target_team,
           **
         )
-        log.warn("RBAC authorize_execution denied principal=#{principal.id} reason=#{result[:reason]}") unless result[:allowed]
-        raise AccessDenied, result unless result[:allowed]
+
+        unless result[:allowed]
+          log.warn("RBAC authorize_execution denied principal=#{principal.id} reason=#{result[:reason]}")
+          raise AccessDenied, result if enforcing?
+        end
 
         result
       end

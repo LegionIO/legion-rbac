@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1] - 2026-04-03
+
+### Fixed
+- `authorize!` and `authorize_execution!` now early-return when `rbac.enabled: false`, preventing NameError on missing RBAC models
+- `authorize!` and `authorize_execution!` respect `rbac.enforce: false` — logs denials but does not raise AccessDenied
+- `Store.db_available?` now also checks that `RbacRoleAssignment` model constant is defined before attempting DB queries
+
 ## [0.3.0] - 2026-04-02
 
 ### Changed

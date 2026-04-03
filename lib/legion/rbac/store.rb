@@ -9,7 +9,9 @@ module Legion
 
       class << self
         def db_available?
-          available = defined?(Legion::Data) ? Legion::Settings[:data]&.dig(:connected) == true : false
+          available = (defined?(Legion::Data) &&
+                      Legion::Settings[:data]&.dig(:connected) == true &&
+                      defined?(Legion::Data::Model::RbacRoleAssignment)) || false
           log.debug("RBAC store db_available=#{available}")
           available
         end

@@ -2,7 +2,7 @@
 
 **Parent**: `/Users/miverso2/rubymine/legion/CLAUDE.md`
 **GitHub**: https://github.com/LegionIO/legion-rbac
-**Version**: 0.2.7
+**Version**: 0.3.2
 
 Optional RBAC gem for LegionIO. Vault-style flat policy model with deny-always-wins semantics.
 
@@ -29,6 +29,9 @@ lib/legion/rbac/policy_engine.rb # Core evaluator
 lib/legion/rbac/team_scope.rb   # Cross-team access validation
 lib/legion/rbac/store.rb        # Dual-mode data access
 lib/legion/rbac/middleware.rb              # Rack middleware
+lib/legion/rbac/routes.rb                 # Sinatra REST API routes for RBAC management
+lib/legion/rbac/capability_registry.rb    # Per-extension capability declarations and querying
+lib/legion/rbac/capability_audit.rb       # Source code scanning for dangerous patterns; enforces declared capabilities
 lib/legion/rbac/entra_claims_mapper.rb    # Entra ID claims -> Legion roles
 lib/legion/rbac/kerberos_claims_mapper.rb # Kerberos principal + AD groups -> Legion roles
 ```

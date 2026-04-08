@@ -18,11 +18,15 @@ module Legion
         map = group_role_map || default_map
         return [] if groups.nil? || groups.empty? || map.empty?
 
+        normalized_map = {}
+        map.each do |key, role|
+          normalized_map[key.to_s] = role.to_s
+        end
+
         roles = Set.new
         groups.each do |group|
-          map.each do |key, role|
-            roles << role.to_s if group.to_s == key.to_s
-          end
+          role = normalized_map[group.to_s]
+          roles << role if role
         end
         roles.to_a
       end
@@ -45,7 +49,8 @@ module Legion
       def self.default_map
         return {} unless defined?(Legion::Settings)
 
-        Legion::Settings.dig(:rbac, :group_role_map) || {}
+        rbac_settings = Legion::Settings[:rbac]
+        rbac_settings&.dig(:group_role_map) || {}
       end
 
       private_class_method :default_map

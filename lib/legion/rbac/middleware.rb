@@ -106,8 +106,16 @@ module Legion
       end
 
       def guard_missing(env, path, reason)
-        log.warn("RBAC middleware denied method=#{env['REQUEST_METHOD']} path=#{path} reason=#{reason.tr(' ', '_')}")
-        Legion::Rbac.enforcing? ? denied_response(reason) : audit_and_proceed(env, reason)
+        if Legion::Rbac.enforcing?
+          log.warn("RBAC middleware denied method=#{env['REQUEST_METHOD']} path=#{path} reason=#{reason.tr(' ', '_')}")
+          denied_response(reason)
+        else
+          log.info(
+            "[RBAC audit] would_deny method=#{env['REQUEST_METHOD']} path=#{path} " \
+            "reason=#{reason.tr(' ', '_')}"
+          )
+          audit_and_proceed(env, reason)
+        end
       end
 
       def dispatch_policy(env, principal, perm)

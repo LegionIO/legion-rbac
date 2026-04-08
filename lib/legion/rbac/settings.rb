@@ -18,6 +18,7 @@ module Legion
           default_local_role:   'admin',
           static_assignments:   [],
           route_permissions:    {},
+          group_role_map:       {},
           roles:                default_roles,
           entra:                entra_defaults,
           capability_audit:     capability_audit_defaults

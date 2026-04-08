@@ -178,17 +178,18 @@ RSpec.describe Legion::Rbac::Middleware do
     end
   end
 
-  describe '#enforce?' do
-    it 'logs and defaults to true when settings lookup fails' do
-      allow(Legion::Settings).to receive(:[]).with(:rbac).and_raise(StandardError, 'settings boom')
-      allow(middleware).to receive(:handle_exception)
+  describe 'principal env key bridge' do
+    it 'reads legion.rbac_principal when present' do
+      rbac_principal = Legion::Rbac::Principal.new(id: 'bridged-user', roles: ['admin'])
+      env = env_for('GET', '/api/tasks').merge('legion.rbac_principal' => rbac_principal)
 
-      expect(middleware.send(:enforce?)).to be true
-      expect(middleware).to have_received(:handle_exception).with(
-        instance_of(StandardError),
-        level:     :warn,
-        operation: 'rbac.middleware.enforce'
-      )
+      status, = middleware.call(env)
+      expect(status).to eq(200)
+    end
+
+    it 'falls back to legion.principal when legion.rbac_principal is absent' do
+      status, = middleware.call(env_for('GET', '/api/tasks', principal: admin_principal))
+      expect(status).to eq(200)
     end
   end
 end

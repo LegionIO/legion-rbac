@@ -47,6 +47,7 @@ module Legion
         log.debug('RBAC Entra defaults requested')
         {
           tenant_id:    nil,
+          client_id:    nil,
           role_map:     {
             'Legion.Admin'      => 'admin',
             'Legion.Supervisor' => 'supervisor',

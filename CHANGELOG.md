@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.2] - 2026-04-08
+
+### Added
+- `client_id: nil` default added to Entra settings block for explicit Azure AD app registration tracking
+
 ## [0.3.1] - 2026-04-03
 
 ### Fixed

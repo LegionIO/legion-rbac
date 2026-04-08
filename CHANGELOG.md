@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.3] - 2026-04-08
+
+### Added
+- `GroupRoleMapper` module: resolves RBAC roles from identity group memberships via exact-string `group_role_map` lookup; `enrich_principal` additive role enrichment; gated behind `Legion::Rbac.enabled?`
+- `group_role_map: {}` default added to `Settings.default` for Phase 7 configuration surface
+
+### Changed
+- RBAC middleware audit mode fix: `enabled=false` now full-bypasses (unchanged); `enabled=true, enforce=false` now runs `PolicyEngine` in dry-run mode and logs `[RBAC audit] would_deny` for any policy-denied request instead of bypassing entirely
+- Middleware principal resolution now reads `env['legion.rbac_principal']` first, falling back to `env['legion.principal']`, bridging Phase 7 Identity middleware handoff
+- Removed dead private `enforce?` method from middleware; callers now use `Legion::Rbac.enabled?` and `Legion::Rbac.enforcing?` directly to eliminate parallel implementations
+
 ## [0.3.2] - 2026-04-08
 
 ### Added

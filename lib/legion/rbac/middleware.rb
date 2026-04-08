@@ -47,47 +47,19 @@ module Legion
       end
 
       def call(env)
-        return @app.call(env) unless enforce?
+        return @app.call(env) unless Legion::Rbac.enabled?
 
         path = env['PATH_INFO']
-        if skip_path?(path)
-          log.debug("RBAC middleware bypass path=#{path} reason=skip_path")
-          return @app.call(env)
-        end
-        if invoke_route?(path)
-          log.debug("RBAC middleware bypass path=#{path} reason=invoke_route")
-          return @app.call(env)
-        end
+        return bypass(env, path, :skip_path) if skip_path?(path)
+        return bypass(env, path, :invoke_route) if invoke_route?(path)
 
-        principal = env['legion.principal']
-        unless principal
-          log.warn("RBAC middleware denied method=#{env['REQUEST_METHOD']} path=#{path} reason=unauthenticated")
-          return denied_response('unauthenticated')
-        end
+        principal = env['legion.rbac_principal'] || env['legion.principal']
+        return guard_missing(env, path, 'unauthenticated') unless principal
 
         perm = find_permission(env['REQUEST_METHOD'], path)
-        unless perm
-          log.warn("RBAC middleware denied method=#{env['REQUEST_METHOD']} path=#{path} reason=unmapped_route")
-          return denied_response('unmapped route')
-        end
-        perm = effective_permission(env, perm)
-        result = policy_result(env, principal, perm)
+        return guard_missing(env, path, 'unmapped route') unless perm
 
-        if result[:allowed]
-          log.info(
-            "RBAC middleware allowed principal=#{principal.id} method=#{env['REQUEST_METHOD']} " \
-            "path=#{path} resource=#{perm[:resource]} action=#{perm[:action]} " \
-            "target_team=#{env['legion.rbac.target_team'] || 'none'}"
-          )
-          @app.call(env)
-        else
-          log.warn(
-            "RBAC middleware denied principal=#{principal.id} method=#{env['REQUEST_METHOD']} " \
-            "path=#{path} resource=#{perm[:resource]} action=#{perm[:action]} " \
-            "target_team=#{env['legion.rbac.target_team'] || 'none'} reason=#{result[:reason]}"
-          )
-          denied_response(result[:reason])
-        end
+        dispatch_policy(env, principal, effective_permission(env, perm))
       rescue StandardError => e
         handle_exception(
           e,
@@ -128,14 +100,48 @@ module Legion
         nil
       end
 
-      def enforce?
-        return false unless defined?(Legion::Settings)
-        return false if Legion::Settings[:rbac]&.fetch(:enabled, true) == false
+      def bypass(env, path, reason)
+        log.debug("RBAC middleware bypass path=#{path} reason=#{reason}")
+        @app.call(env)
+      end
 
-        Legion::Settings[:rbac][:enforce]
-      rescue StandardError => e
-        handle_exception(e, level: :warn, operation: 'rbac.middleware.enforce')
-        true
+      def guard_missing(env, path, reason)
+        log.warn("RBAC middleware denied method=#{env['REQUEST_METHOD']} path=#{path} reason=#{reason.tr(' ', '_')}")
+        Legion::Rbac.enforcing? ? denied_response(reason) : audit_and_proceed(env, reason)
+      end
+
+      def dispatch_policy(env, principal, perm)
+        result = policy_result(env, principal, perm)
+        path = env['PATH_INFO']
+
+        if result[:would_deny]
+          log.info(
+            "[RBAC audit] would_deny: #{result[:reason]} principal=#{result[:principal_id]} " \
+            "action=#{result[:action]} resource=#{result[:resource]}"
+          )
+          @app.call(env)
+        elsif result[:allowed]
+          log.info(
+            "RBAC middleware allowed principal=#{principal.id} method=#{env['REQUEST_METHOD']} " \
+            "path=#{path} resource=#{perm[:resource]} action=#{perm[:action]} " \
+            "target_team=#{env['legion.rbac.target_team'] || 'none'}"
+          )
+          @app.call(env)
+        else
+          log.warn(
+            "RBAC middleware denied principal=#{principal.id} method=#{env['REQUEST_METHOD']} " \
+            "path=#{path} resource=#{perm[:resource]} action=#{perm[:action]} " \
+            "target_team=#{env['legion.rbac.target_team'] || 'none'} reason=#{result[:reason]}"
+          )
+          denied_response(result[:reason])
+        end
+      end
+
+      def audit_and_proceed(env, reason)
+        log.info(
+          "[RBAC audit] would_deny: #{reason} method=#{env['REQUEST_METHOD']} path=#{env['PATH_INFO']}"
+        )
+        @app.call(env)
       end
 
       def denied_response(reason)

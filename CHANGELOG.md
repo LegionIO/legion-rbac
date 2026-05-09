@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.4] - 2026-05-09
+
+### Removed
+- Unnecessary `defined?(Legion::Logging)` guards from route handlers — legion-logging is a hard gemspec dependency and always available
+
 ## [0.3.3] - 2026-04-08
 
 ### Added

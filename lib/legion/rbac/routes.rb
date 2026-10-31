@@ -382,7 +382,7 @@ module Legion
 
           Legion::Events.emit(
             'rbac.policy_changed',
-            policy_change_payload(
+            **policy_change_payload(
               change_type:   change_type,
               target_type:   target_type,
               record_values: record_values,

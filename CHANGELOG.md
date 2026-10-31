@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.5] - 2026-10-30
+
+### Fixed
+- Deliver authorization decisions and policy-change audit events through the Core event bus keyword payload contract instead of losing events to a rescued argument error.
+
 ## [0.3.4] - 2026-05-09
 
 ### Removed

@@ -34,8 +34,8 @@ module Legion
       def self.pattern_to_regex(pattern)
         parts = pattern.split('/').map do |segment|
           case segment
-          when '*'  then '.*'
-          when '+'  then '[^/]+'
+          when '*' then '.*'
+          when '+' then '[^/]+'
           else Regexp.escape(segment)
           end
         end
@@ -80,8 +80,8 @@ module Legion
       def self.pattern_to_regex(pattern)
         parts = pattern.split('/').map do |segment|
           case segment
-          when '*'  then '.*'
-          when '+'  then '[^/]+'
+          when '*' then '.*'
+          when '+' then '[^/]+'
           else Regexp.escape(segment)
           end
         end

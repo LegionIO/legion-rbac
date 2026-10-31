@@ -87,10 +87,10 @@ module Legion
 
       def events_enabled?
         return false unless defined?(Legion::Events)
-        return false unless defined?(Legion::Settings)
 
         Legion::Settings[:rbac]&.fetch(:emit_events, true) != false
-      rescue StandardError
+      rescue StandardError => e
+        handle_exception(e, level: :warn, operation: 'rbac.events_enabled')
         false
       end
 

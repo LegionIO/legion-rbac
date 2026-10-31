@@ -393,7 +393,7 @@ module Legion
           enforce:        context[:enforce],
           reason:         result[:reason]
         }.merge(context[:event_context]).compact
-        Legion::Events.emit(event_name, payload)
+        Legion::Events.emit(event_name, **payload)
       rescue StandardError => e
         handle_exception(e, level: :warn, operation: 'rbac.policy_engine.emit_decision_event', event: event_name)
       end

@@ -3,14 +3,6 @@
 require 'tmpdir'
 require 'fileutils'
 
-unless defined?(Legion::Events)
-  module Legion
-    module Events
-      def self.emit(*); end
-    end
-  end
-end
-
 RSpec.describe Legion::Rbac::PolicyEngine, '.evaluate_capability' do
   let(:role_index) { Legion::Rbac::ConfigLoader.load_roles }
 
@@ -140,24 +132,23 @@ RSpec.describe Legion::Rbac::PolicyEngine, '.evaluate_capability' do
   end
 
   context 'decision events' do
-    it 'emits rbac.denied for denied capability checks' do
-      allow(Legion::Events).to receive(:emit)
+    include_context 'with an audit event subscriber'
 
+    it 'emits rbac.denied for denied capability checks' do
       described_class.evaluate_capability(
         principal:  principal_with(roles: ['worker']),
         capability: :shell_execute,
         role_index: role_index
       )
 
-      expect(Legion::Events).to have_received(:emit).with(
-        'rbac.denied',
-        hash_including(
-          principal_id: 'test',
-          capability:   'shell_execute',
-          operation:    'rbac.policy_engine.evaluate_capability',
-          reason:       'capability shell_execute denied by role policy'
-        )
-      )
+      expect(observed_events).to contain_exactly([
+                                                   'rbac.denied',
+                                                   include(
+                                                     principal_id: 'test',
+                                                     capability:   'shell_execute',
+                                                     allowed:      false
+                                                   )
+                                                 ])
     end
   end
 

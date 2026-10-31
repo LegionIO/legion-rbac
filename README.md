@@ -90,6 +90,12 @@ result = Legion::Rbac::PolicyEngine.evaluate(principal: principal, action: :read
 # => { allowed: true, reason: "...", would_deny: false }
 ```
 
+### Audit Events
+
+When the optional Core `Legion::Events` bus is loaded and `rbac.emit_events` is enabled, subscribers receive `rbac.granted` and `rbac.denied` decisions with principal, resource/capability, enforcement and request-correlation context. Dry-run denials still emit `rbac.denied` with `would_deny: true`; authorization remains nonblocking.
+
+Successful policy mutations emit `rbac.policy_changed` with the actor, target record and request correlation. RBAC 0.3.5 uses Core's keyword payload contract, so these notifications reach ordinary `Legion::Events.on` subscribers rather than being lost to an argument error. Event-delivery failures are logged without changing the authorization decision.
+
 ### CLI
 
 ```bash

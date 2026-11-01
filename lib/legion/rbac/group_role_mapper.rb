@@ -6,7 +6,7 @@ module Legion
       # Resolve RBAC roles from group memberships using a configurable map.
       #
       # @param groups [Array<String>] group names or OIDs from identity provider
-      # @param group_role_map [Hash, nil] { group_name => role_name }; reads default_map when nil
+      # @param group_role_map [Hash, nil] { group_name => role_name }; reads live settings when nil
       # @return [Array<String>] resolved role names (may be empty)
       #
       # NOTE: v1 supports exact string match only. Regexp keys in group_role_map are NOT supported —
@@ -15,7 +15,7 @@ module Legion
       def self.resolve_roles(groups:, group_role_map: nil)
         return [] unless Legion::Rbac.enabled?
 
-        map = group_role_map || default_map
+        map = group_role_map || Legion::Settings[:rbac][:group_role_map]
         return [] if groups.nil? || groups.empty? || map.empty?
 
         normalized_map = {}
@@ -45,15 +45,6 @@ module Legion
         existing_roles = principal[:roles] || []
         principal.merge(roles: (existing_roles + additional_roles).uniq)
       end
-
-      def self.default_map
-        return {} unless defined?(Legion::Settings)
-
-        rbac_settings = Legion::Settings[:rbac]
-        rbac_settings&.dig(:group_role_map) || {}
-      end
-
-      private_class_method :default_map
     end
   end
 end

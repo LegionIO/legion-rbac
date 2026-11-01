@@ -108,7 +108,7 @@ legion rbac check user-1 runners/lex-http/* --action execute --roles worker
 
 ## Configuration
 
-Default roles are defined in settings under `rbac.roles`. Custom roles can be added via settings merge or config files.
+Loading `legion/rbac` registers security defaults in `Legion::Settings[:rbac]`. Custom roles can be added under `rbac.roles` via settings merge or config files. Runtime enablement, enforcement, capability-audit policy, and group-role mappings read the live tree: `enabled: false` disables RBAC, while `enforce: false` retains evaluation and reports `would_deny` without blocking. After a full `Legion::Settings.reset!`, explicitly register RBAC defaults again before setup.
 
 ## Requirements
 

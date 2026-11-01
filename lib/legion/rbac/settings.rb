@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'legion/logging'
+require 'legion/settings'
 
 module Legion
   module Rbac
@@ -136,3 +137,5 @@ module Legion
     end
   end
 end
+
+Legion::Settings.register_library(:rbac, Legion::Rbac::Settings.default)

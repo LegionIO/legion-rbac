@@ -100,13 +100,11 @@ module Legion
         end
 
         def enabled?
-          settings = capability_audit_settings
-          settings[:enabled] != false
+          Legion::Settings[:rbac][:capability_audit][:enabled] != false
         end
 
         def mode
-          settings = capability_audit_settings
-          (settings[:mode] || 'enforce').to_s
+          Legion::Settings[:rbac][:capability_audit][:mode].to_s
         end
 
         private
@@ -160,12 +158,6 @@ module Legion
             allowed:        true,
             reason:         reason
           )
-        end
-
-        def capability_audit_settings
-          return {} unless defined?(Legion::Settings)
-
-          Legion::Settings[:rbac]&.dig(:capability_audit) || {}
         end
       end
     end

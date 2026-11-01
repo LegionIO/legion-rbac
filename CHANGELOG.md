@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.6] - 2026-11-01
+
+### Fixed
+- Register RBAC security defaults at load and read live Settings for enablement, enforcement, capability audits, and group mappings without optional-Settings fallbacks.
+
 ## [0.3.5] - 2026-10-30
 
 ### Fixed

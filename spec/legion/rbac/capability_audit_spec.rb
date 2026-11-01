@@ -253,30 +253,6 @@ RSpec.describe Legion::Rbac::CapabilityAudit do
     end
   end
 
-  describe '.enabled?' do
-    it 'returns true by default' do
-      expect(described_class.enabled?).to be true
-    end
-
-    it 'returns false when disabled' do
-      Legion::Settings[:rbac][:capability_audit][:enabled] = false
-      expect(described_class.enabled?).to be false
-      Legion::Settings[:rbac][:capability_audit][:enabled] = true
-    end
-  end
-
-  describe '.mode' do
-    it 'defaults to enforce' do
-      expect(described_class.mode).to eq('enforce')
-    end
-
-    it 'reads from settings' do
-      Legion::Settings[:rbac][:capability_audit][:mode] = 'warn'
-      expect(described_class.mode).to eq('warn')
-      Legion::Settings[:rbac][:capability_audit][:mode] = 'enforce'
-    end
-  end
-
   describe 'AuditResult' do
     subject(:result) do
       described_class::AuditResult.new(

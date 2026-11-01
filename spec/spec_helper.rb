@@ -10,9 +10,6 @@ require 'legion/settings'
 Legion::Settings.loader = Legion::Settings::Loader.new
 Legion::Logging.setup(level: 'fatal', async: false)
 
-require 'legion/rbac/settings'
-Legion::Settings.merge_settings(:rbac, Legion::Rbac::Settings.default)
-
 require 'legion/rbac'
 
 RSpec.shared_context 'with an audit event subscriber' do

@@ -75,7 +75,7 @@ RSpec.describe Legion::Rbac::GroupRoleMapper do
       end
     end
 
-    context 'with default_map from settings' do
+    context 'with the configured group map' do
       before do
         Legion::Settings[:rbac][:group_role_map] = { 'Ops Team' => 'operator' }
       end

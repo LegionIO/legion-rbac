@@ -12,12 +12,10 @@ RSpec.describe Legion::Rbac do
     expect(defined?(Legion::Rbac::KerberosClaimsMapper)).to eq('constant')
   end
 
-  it 'boots from the gem entrypoint without preloading legion/logging' do
+  it 'boots from the gem entrypoint without preloading Settings or Logging' do
     root = File.expand_path('../..', __dir__)
     script = <<~RUBY
       require 'bundler/setup'
-      require 'legion/settings'
-      Legion::Settings.load
       require 'legion/rbac'
       Legion::Rbac.setup
       puts 'rbac_boot_ok'

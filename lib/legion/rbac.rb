@@ -55,7 +55,6 @@ module Legion
 
       def setup
         log.info 'Legion::Rbac setup started'
-        Legion::Settings.merge_settings(:rbac, Legion::Rbac::Settings.default)
         unless enabled?
           update_role_index(EMPTY_ROLE_INDEX, connected: false)
           log.info 'Legion::Rbac disabled via settings'
@@ -74,21 +73,17 @@ module Legion
       end
 
       def enabled?
-        return true unless defined?(Legion::Settings)
-
-        Legion::Settings[:rbac]&.fetch(:enabled, true) != false
+        Legion::Settings[:rbac][:enabled] != false
       end
 
       def enforcing?
-        return true unless defined?(Legion::Settings)
-
-        Legion::Settings[:rbac]&.fetch(:enforce, true) != false
+        Legion::Settings[:rbac][:enforce] != false
       end
 
       def events_enabled?
         return false unless defined?(Legion::Events)
 
-        Legion::Settings[:rbac]&.fetch(:emit_events, true) != false
+        Legion::Settings[:rbac][:emit_events] != false
       rescue StandardError => e
         handle_exception(e, level: :warn, operation: 'rbac.events_enabled')
         false

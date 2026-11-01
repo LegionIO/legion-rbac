@@ -10,3 +10,4 @@
 /.idea/
 *.key
 .rspec_status
+*.gem
